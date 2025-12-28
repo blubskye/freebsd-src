@@ -542,7 +542,17 @@ __rw_rlock_hard(struct rwlock *rw, struct thread *td, uintptr_t v
 				    "spinning", "lockname:\"%s\"",
 				    rw->lock_object.lo_name);
 				n = RW_READERS(v);
-				for (i = 0; i < rowner_loops; i += n) {
+				/*
+				 * PERFORMANCE FIX: Guard against n==0 which
+				 * could cause infinite loop if readers release
+				 * between check and loop entry. Also, increment
+				 * i by 1 (not n) to ensure consistent spin count
+				 * regardless of reader count. The lock_delay_spin(n)
+				 * already scales the delay with reader count.
+				 */
+				if (n == 0)
+					continue;
+				for (i = 0; i < rowner_loops; i++) {
 					lock_delay_spin(n);
 					v = RW_READ_VALUE(rw);
 					if (!(v & RW_LOCK_READ))
@@ -1059,7 +1069,18 @@ __rw_wlock_hard(volatile uintptr_t *c, uintptr_t v LOCK_FILE_LINE_ARG_DEF)
 			    "spinning", "lockname:\"%s\"",
 			    rw->lock_object.lo_name);
 			n = RW_READERS(v);
-			for (i = 0; i < rowner_loops; i += n) {
+			/*
+			 * PERFORMANCE FIX: Guard against n==0 which could
+			 * cause infinite loop. Also, increment i by 1 (not n)
+			 * to ensure consistent spin count regardless of
+			 * reader count.
+			 */
+			if (n == 0) {
+				KTR_STATE0(KTR_SCHED, "thread",
+				    sched_tdname(curthread), "running");
+				continue;
+			}
+			for (i = 0; i < rowner_loops; i++) {
 				lock_delay_spin(n);
 				v = RW_READ_VALUE(rw);
 				if (!(v & RW_LOCK_WRITE_SPINNER))

@@ -1156,7 +1156,7 @@ zone_domain_update_wss(uma_zone_domain_t zdom)
 
 	/* To reduce period edge effects on WSS keep half of the imax. */
 	atomic_subtract_long(&zdom->uzd_imax,
-	    (zdom->uzd_imax - zdom->uzd_nitems + 1) / 2);
+	    (zdom->uzd_imax - zdom->uzd_nitems + 1) >> 1);
 	zdom->uzd_imin = zdom->uzd_bimin = zdom->uzd_nitems;
 }
 

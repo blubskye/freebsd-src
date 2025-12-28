@@ -6766,9 +6766,9 @@ iflib_handle_tx_reclaim_thresh(SYSCTL_HANDLER_ARGS)
 	if (thresh == ctx->ifc_sysctl_tx_reclaim_thresh)
 		return 0;
 
-	if (thresh > ctx->ifc_softc_ctx.isc_ntxd[0] / 2) {
+	if (thresh > ctx->ifc_softc_ctx.isc_ntxd[0] >> 1) {
 		device_printf(ctx->ifc_dev, "TX Reclaim thresh must be <= %d\n",
-		    ctx->ifc_softc_ctx.isc_ntxd[0] / 2);
+		    ctx->ifc_softc_ctx.isc_ntxd[0] >> 1);
 		return (EINVAL);
 	}
 

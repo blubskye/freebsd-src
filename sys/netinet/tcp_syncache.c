@@ -1461,7 +1461,7 @@ syncache_add(struct in_conninfo *inc, struct tcpopt *to, struct tcphdr *th,
 		 * listen queue with bogus TFO connections.
 		 */
 		if (atomic_fetchadd_int(tp->t_tfo_pending, 1) <=
-		    (so->sol_qlimit / 2)) {
+		    (so->sol_qlimit >> 1)) {
 			int result;
 
 			result = tcp_fastopen_check_cookie(inc,

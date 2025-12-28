@@ -2190,7 +2190,7 @@ bw_meter_prepare_upcall(struct bw_meter *x, struct timeval *nowp)
 
 	if (buf_ring_enqueue(V_bw_upcalls_ring, u))
 		log(LOG_WARNING, "bw_meter_prepare_upcall: cannot enqueue upcall\n");
-	if (buf_ring_count(V_bw_upcalls_ring) > (BW_UPCALLS_MAX / 2)) {
+	if (buf_ring_count(V_bw_upcalls_ring) > (BW_UPCALLS_MAX >> 1)) {
 		taskqueue_enqueue(V_task_queue, &V_task);
 	}
 }

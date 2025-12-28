@@ -703,7 +703,7 @@ cubic_newround(struct cc_var *ccv, uint32_t round_cnt)
 			 * and give us hystart_css_rounds more rounds.
 			 */
 			if (ccv->flags & CCF_HYSTART_CONS_SSTH) {
-				CCV(ccv, snd_ssthresh) = ((cubicd->css_lowrtt_fas + cubicd->css_fas_at_css_entry) / 2);
+				CCV(ccv, snd_ssthresh) = ((cubicd->css_lowrtt_fas + cubicd->css_fas_at_css_entry) >> 1);
 			} else {
 				CCV(ccv, snd_ssthresh) = cubicd->css_lowrtt_fas;
 			}

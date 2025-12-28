@@ -94,7 +94,7 @@ bitmask_get_size(uint32_t items)
 	assert((items % BLOCK_ITEMS) == 0);
 #endif
 
-	return (items / 8);
+	return (items >> 3);
 }
 
 static void

@@ -358,13 +358,13 @@ init_param2(long physpages)
 	 * The default for maxpipekva is min(1/64 of the kernel address space,
 	 * max(1/64 of main memory, 512KB)).  See sys_pipe.c for more details.
 	 */
-	maxpipekva = ptoa(physpages / 64);
+	maxpipekva = ptoa(physpages >> 6);
 	TUNABLE_LONG_FETCH("kern.ipc.maxpipekva", &maxpipekva);
 	if (maxpipekva < 512 * 1024)
 		maxpipekva = 512 * 1024;
-	if (maxpipekva > (VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) / 64)
-		maxpipekva = (VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) /
-		    64;
+	if (maxpipekva > (VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) >> 6)
+		maxpipekva = (VM_MAX_KERNEL_ADDRESS - VM_MIN_KERNEL_ADDRESS) >>
+		    6;
 	TSEXIT();
 }
 

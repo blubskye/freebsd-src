@@ -60,14 +60,8 @@
 static void
 sctp_enforce_cwnd_limit(struct sctp_association *assoc, struct sctp_nets *net)
 {
-	if ((assoc->max_cwnd > 0) &&
-	    (net->cwnd > assoc->max_cwnd) &&
-	    (net->cwnd > (net->mtu - sizeof(struct sctphdr)))) {
-		net->cwnd = assoc->max_cwnd;
-		if (net->cwnd < (net->mtu - sizeof(struct sctphdr))) {
-			net->cwnd = net->mtu - sizeof(struct sctphdr);
-		}
-	}
+	if ((assoc->max_cwnd > 0) && (net->cwnd > assoc->max_cwnd))
+		net->cwnd = max(assoc->max_cwnd, net->mtu - sizeof(struct sctphdr));
 }
 
 static void
@@ -183,15 +177,15 @@ sctp_cwnd_update_after_fr(struct sctp_tcb *stcb,
 						    t_ucwnd_sbw));
 						 /* INCREASE FACTOR */ ;
 					}
-					if ((net->cwnd > t_cwnd / 2) &&
-					    (net->ssthresh < net->cwnd - t_cwnd / 2)) {
-						net->ssthresh = net->cwnd - t_cwnd / 2;
+					if ((net->cwnd > t_cwnd >> 1) &&
+					    (net->ssthresh < net->cwnd - (t_cwnd >> 1))) {
+						net->ssthresh = net->cwnd - (t_cwnd >> 1);
 					}
 					if (net->ssthresh < net->mtu) {
 						net->ssthresh = net->mtu;
 					}
 				} else {
-					net->ssthresh = net->cwnd / 2;
+					net->ssthresh = net->cwnd >> 1;
 					if (net->ssthresh < (net->mtu * 2)) {
 						net->ssthresh = 2 * net->mtu;
 					}
@@ -1060,15 +1054,15 @@ sctp_cwnd_update_after_timeout(struct sctp_tcb *stcb, struct sctp_nets *net)
 				net->ssthresh = net->mtu;
 			}
 		}
-		if ((net->cwnd > t_cwnd / 2) &&
-		    (net->ssthresh < net->cwnd - t_cwnd / 2)) {
-			net->ssthresh = net->cwnd - t_cwnd / 2;
+		if ((net->cwnd > t_cwnd >> 1) &&
+		    (net->ssthresh < net->cwnd - (t_cwnd >> 1))) {
+			net->ssthresh = net->cwnd - (t_cwnd >> 1);
 		}
 		if (net->ssthresh < net->mtu) {
 			net->ssthresh = net->mtu;
 		}
 	} else {
-		net->ssthresh = max(net->cwnd / 2, 4 * net->mtu);
+		net->ssthresh = max(net->cwnd >> 1, 4 * net->mtu);
 	}
 	net->cwnd = net->mtu;
 	net->partial_bytes_acked = 0;
@@ -1937,7 +1931,7 @@ measure_achieved_throughput(struct sctp_nets *net)
 			/* just after backoff */
 			net->cc_mod.htcp_ca.minB = net->cc_mod.htcp_ca.maxB = net->cc_mod.htcp_ca.Bi = cur_Bi;
 		} else {
-			net->cc_mod.htcp_ca.Bi = (3 * net->cc_mod.htcp_ca.Bi + cur_Bi) / 4;
+			net->cc_mod.htcp_ca.Bi = (3 * net->cc_mod.htcp_ca.Bi + cur_Bi) >> 2;
 			if (net->cc_mod.htcp_ca.Bi > net->cc_mod.htcp_ca.maxB)
 				net->cc_mod.htcp_ca.maxB = net->cc_mod.htcp_ca.Bi;
 			if (net->cc_mod.htcp_ca.minB > net->cc_mod.htcp_ca.maxB)

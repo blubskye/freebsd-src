@@ -716,7 +716,20 @@ _sx_xlock_hard(struct sx *sx, uintptr_t x, int opts LOCK_FILE_LINE_ARG_DEF)
 			    "spinning", "lockname:\"%s\"",
 			    sx->lock_object.lo_name);
 			n = SX_SHARERS(x);
-			for (i = 0; i < asx_loops; i += n) {
+			/*
+			 * PERFORMANCE FIX: Guard against n==0 which could
+			 * cause infinite loop if readers released between
+			 * the SX_SHARERS check above and here. Also, use
+			 * consistent loop increment (i++) so spin count
+			 * is predictable. lock_delay_spin(n) already
+			 * scales delay with sharer count.
+			 */
+			if (n == 0) {
+				KTR_STATE0(KTR_SCHED, "thread",
+				    sched_tdname(curthread), "running");
+				continue;
+			}
+			for (i = 0; i < asx_loops; i++) {
 				lock_delay_spin(n);
 				x = SX_READ_VALUE(sx);
 				if (!(x & SX_LOCK_WRITE_SPINNER))
@@ -1125,7 +1138,18 @@ _sx_slock_hard(struct sx *sx, int opts, uintptr_t x LOCK_FILE_LINE_ARG_DEF)
 				    "spinning", "lockname:\"%s\"",
 				    sx->lock_object.lo_name);
 				n = SX_SHARERS(x);
-				for (i = 0; i < asx_loops; i += n) {
+				/*
+				 * PERFORMANCE FIX: Guard against n==0 which
+				 * could cause infinite loop. Also use
+				 * consistent i++ increment for predictable
+				 * spin count.
+				 */
+				if (n == 0) {
+					KTR_STATE0(KTR_SCHED, "thread",
+					    sched_tdname(curthread), "running");
+					continue;
+				}
+				for (i = 0; i < asx_loops; i++) {
 					lock_delay_spin(n);
 					x = SX_READ_VALUE(sx);
 					if (!(x & SX_LOCK_SHARED))

@@ -1986,7 +1986,7 @@ fdgrowtable_exp(struct filedesc *fdp, int nfd)
 
 	FILEDESC_XLOCK_ASSERT(fdp);
 
-	nfd1 = fdp->fd_nfiles * 2;
+	nfd1 = fdp->fd_nfiles << 1;
 	if (nfd1 < nfd)
 		nfd1 = nfd;
 	fdgrowtable(fdp, nfd1);
@@ -2119,7 +2119,7 @@ fdalloc(struct thread *td, int minfd, int *result)
 	if (__predict_false(fd >= maxfd))
 		return (EMFILE);
 	if (__predict_false(fd >= fdp->fd_nfiles)) {
-		allocfd = min(fd * 2, maxfd);
+		allocfd = min(fd << 1, maxfd);
 #ifdef RACCT
 		if (RACCT_ENABLED()) {
 			error = racct_set_unlocked(p, RACCT_NOFILE, allocfd);

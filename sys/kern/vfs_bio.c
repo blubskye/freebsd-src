@@ -585,7 +585,7 @@ bdirtysub(struct buf *bp)
 
 	bd = bufdomain(bp);
 	num = atomic_fetchadd_int(&bd->bd_numdirtybuffers, -1);
-	if (num == (bd->bd_lodirtybuffers + bd->bd_hidirtybuffers) / 2)
+	if (num == ((bd->bd_lodirtybuffers + bd->bd_hidirtybuffers) >> 1))
 		bdirtywakeup();
 	if (num == bd->bd_lodirtybuffers || num == bd->bd_hidirtybuffers)
 		bd_clear(bd);
@@ -609,7 +609,7 @@ bdirtyadd(struct buf *bp)
 	 */
 	bd = bufdomain(bp);
 	num = atomic_fetchadd_int(&bd->bd_numdirtybuffers, 1);
-	if (num == (bd->bd_lodirtybuffers + bd->bd_hidirtybuffers) / 2)
+	if (num == ((bd->bd_lodirtybuffers + bd->bd_hidirtybuffers) >> 1))
 		bd_wakeup();
 	if (num == bd->bd_lodirtybuffers || num == bd->bd_hidirtybuffers)
 		bd_set(bd);
@@ -1273,7 +1273,7 @@ bufinit(void)
 	 * The lower 1 MiB limit is the historical upper limit for
 	 * hirunningspace.
 	 */
-	hirunningspace = lmax(lmin(roundup(hibufspace / 64, maxbcachebuf),
+	hirunningspace = lmax(lmin(roundup(hibufspace >> 6, maxbcachebuf),
 	    128 * maxphys), 1024 * 1024);
 	lorunningspace = roundup((hirunningspace * 2) / 3, maxbcachebuf);
 
@@ -1298,10 +1298,10 @@ bufinit(void)
 	 * minimum cannot be met.  We try to size hidirtybuffers to 3/4 our
 	 * buffer space assuming BKVASIZE'd buffers.
 	 */
-	while ((long)hidirtybuffers * BKVASIZE > 3 * hibufspace / 4) {
+	while ((long)hidirtybuffers * BKVASIZE > (3 * hibufspace) >> 2) {
 		hidirtybuffers >>= 1;
 	}
-	lodirtybuffers = hidirtybuffers / 2;
+	lodirtybuffers = hidirtybuffers >> 1;
 
 	/*
 	 * lofreebuffers should be sufficient to avoid stalling waiting on
@@ -3503,7 +3503,7 @@ buf_daemon(void)
 		for (i = 0; i < buf_domains; i++) {
 			bd = &bdomain[i];
 			if (speedupreq)
-				lodirty = bd->bd_numdirtybuffers / 2;
+				lodirty = bd->bd_numdirtybuffers >> 1;
 			else
 				lodirty = bd->bd_lodirtybuffers;
 			while (bd->bd_numdirtybuffers > lodirty) {

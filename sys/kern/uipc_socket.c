@@ -259,7 +259,7 @@ sysctl_somaxconn(SYSCTL_HANDLER_ARGS)
 
 	/*
 	 * The purpose of the UINT_MAX / 3 limit, is so that the formula
-	 *   3 * sol_qlimit / 2
+	 *   sol_qlimit + (sol_qlimit >> 1)
 	 * below, will not overflow.
          */
 
@@ -1018,7 +1018,7 @@ solisten_clone(struct socket *head)
 	bool dolog, over;
 
 	SOLISTEN_LOCK(head);
-	over = (head->sol_qlen > 3 * head->sol_qlimit / 2);
+	over = (head->sol_qlen > head->sol_qlimit + (head->sol_qlimit >> 1));
 #ifdef REGRESSION
 	if (regression_sonewconn_earlytest && over) {
 #else

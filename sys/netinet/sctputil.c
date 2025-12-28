@@ -2999,7 +2999,7 @@ sctp_calculate_rto(struct sctp_tcb *stcb,
 		net->RTO_measured = 1;
 		first_measure = 1;
 		net->lastsa = rtt << SCTP_RTT_SHIFT;
-		net->lastsv = (rtt / 2) << SCTP_RTT_VAR_SHIFT;
+		net->lastsv = (rtt >> 1) << SCTP_RTT_VAR_SHIFT;
 		if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_RTTVAR_LOGGING_ENABLE) {
 			rto_logging(net, SCTP_LOG_INITIAL_RTT);
 		}

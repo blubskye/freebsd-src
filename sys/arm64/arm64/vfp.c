@@ -77,7 +77,7 @@ _sve_buf_size(u_int sve_len)
 	 * 16 predicate registers and the fault fault register, each 1/8th
 	 * the size of a vector register.
 	 */
-	len += ((size_t)sve_len * 17) / 8;
+	len += ((size_t)sve_len * 17) >> 3;
 	/*
 	 * FPSR and FPCR
 	 */

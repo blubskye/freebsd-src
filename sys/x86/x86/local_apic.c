@@ -1095,8 +1095,8 @@ lapic_intr_pending(u_int vector)
 	 * Finally, we modulus the vector by 32 to determine the
 	 * individual bit to test.
 	 */
-	irr = lapic_read32(LAPIC_IRR0 + vector / 32);
-	return (irr & 1 << (vector % 32));
+	irr = lapic_read32(LAPIC_IRR0 + (vector >> 5));
+	return (irr & (1 << (vector & 0x1f)));
 }
 
 void
@@ -1599,13 +1599,13 @@ apic_enable_vector(u_int apic_id, u_int vector)
 {
 
 	KASSERT(vector != IDT_SYSCALL, ("Attempt to overwrite syscall entry"));
-	KASSERT(ioint_handlers[vector / 32] != NULL,
+	KASSERT(ioint_handlers[vector >> 5] != NULL,
 	    ("No ISR handler for vector %u", vector));
 #ifdef KDTRACE_HOOKS
 	KASSERT(vector != IDT_DTRACE_RET,
 	    ("Attempt to overwrite DTrace entry"));
 #endif
-	setidt(vector, (pti ? ioint_pti_handlers : ioint_handlers)[vector / 32],
+	setidt(vector, (pti ? ioint_pti_handlers : ioint_handlers)[vector >> 5],
 	    SDT_APIC, SEL_KPL, GSEL_APIC);
 }
 

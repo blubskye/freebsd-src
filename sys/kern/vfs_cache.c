@@ -481,14 +481,26 @@ cache_ncp_invalidate(struct namecache *ncp)
 
 /*
  * Does this entry match the given directory and name?
+ *
+ * PERFORMANCE FIX: Reorder checks so cheaper comparisons (pointer, length)
+ * happen before expensive string comparison. Also use memcmp() which modern
+ * compilers optimize better than bcmp() for small fixed sizes.
  */
 static bool
 cache_ncp_match(struct namecache *ncp, struct vnode *dvp,
     struct componentname *cnp)
 {
-	return (ncp->nc_dvp == dvp &&
-	    ncp->nc_nlen == cnp->cn_namelen &&
-	    bcmp(ncp->nc_name, cnp->cn_nameptr, cnp->cn_namelen) == 0);
+	/* Quick rejection: different directory or length */
+	if (ncp->nc_dvp != dvp)
+		return (false);
+	if (ncp->nc_nlen != cnp->cn_namelen)
+		return (false);
+
+	/*
+	 * Use memcmp for the actual comparison. Modern compilers will
+	 * inline and optimize this for common short lengths.
+	 */
+	return (memcmp(ncp->nc_name, cnp->cn_nameptr, cnp->cn_namelen) == 0);
 }
 
 /*
@@ -952,7 +964,7 @@ static uint32_t
 cache_get_hash_iter(char c, uint32_t hash)
 {
 
-	return (fnv_32_buf(&c, 1, hash));
+	return ((hash * FNV_32_PRIME) ^ (u_int8_t)c);
 }
 
 static uint32_t

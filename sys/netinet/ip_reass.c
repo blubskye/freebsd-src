@@ -705,7 +705,7 @@ ipreass_vnet_init(void)
 	    NULL, UMA_ALIGN_PTR, 0);
 	max = IP_MAXFRAGPACKETS;
 	max = uma_zone_set_max(V_ipq_zone, max);
-	V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize / 2), 1);
+	V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize >> 1), 1);
 }
 
 void
@@ -835,7 +835,7 @@ ipreass_zone_change(void *tag)
 	VNET_FOREACH(vnet_iter) {
 		CURVNET_SET(vnet_iter);
 		max = uma_zone_set_max(V_ipq_zone, max);
-		V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize / 2), 1);
+		V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize >> 1), 1);
 		ipreass_drain_tomax();
 		CURVNET_RESTORE();
 	}
@@ -867,7 +867,7 @@ sysctl_maxfragpackets(SYSCTL_HANDLER_ARGS)
 		 * and place an extreme upper bound.
 		 */
 		max = uma_zone_set_max(V_ipq_zone, max);
-		V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize / 2), 1);
+		V_ipreass_maxbucketsize = imax(max / (V_ipq_hashsize >> 1), 1);
 		ipreass_drain_tomax();
 		V_noreass = 0;
 	} else if (max == 0) {

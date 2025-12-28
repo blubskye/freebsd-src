@@ -1133,19 +1133,34 @@ rms_action_func(void *arg)
 	smp_rendezvous_cpus_done(arg);
 }
 
+/*
+ * PERFORMANCE FIX: Added exponential backoff to influx spinning.
+ * The original tight loop caused excessive cache coherency traffic
+ * on NUMA systems when multiple CPUs were waiting on influx.
+ */
 static void
 rms_wait_func(void *arg, int cpu)
 {
 	struct rmslock_ipi *rmsipi;
 	struct rmslock_pcpu *pcpu;
 	struct rmslock *rms;
+	u_int spin_cnt, delay_loops;
 
 	rmsipi = __containerof(arg, struct rmslock_ipi, srcra);
 	rms = rmsipi->rms;
 	pcpu = rms_int_remote_pcpu(rms, cpu);
 
-	while (atomic_load_int(&pcpu->influx))
-		cpu_spinwait();
+	spin_cnt = 0;
+	while (atomic_load_int(&pcpu->influx)) {
+		/*
+		 * Use exponential backoff to reduce cache line bouncing.
+		 * Start with 1 spinwait, double every 64 iterations up to 16.
+		 */
+		delay_loops = 1 << min(spin_cnt >> 6, 4);
+		while (delay_loops-- > 0)
+			cpu_spinwait();
+		spin_cnt++;
+	}
 }
 
 #ifdef INVARIANTS

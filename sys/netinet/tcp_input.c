@@ -1438,10 +1438,15 @@ tcp_autorcvbuf(struct mbuf *m, struct tcphdr *th, struct socket *so,
 	if (V_tcp_do_autorcvbuf && (so->so_rcv.sb_flags & SB_AUTOSIZE) &&
 	    tp->t_srtt != 0 && tp->rfbuf_ts != 0 &&
 	    TCP_TS_TO_TICKS(tcp_ts_getticks() - tp->rfbuf_ts) >
-	    ((tp->t_srtt >> TCP_RTT_SHIFT)/2)) {
-		if (tp->rfbuf_cnt > ((so->so_rcv.sb_hiwat / 2)/ 4 * 3) &&
+	    (tp->t_srtt >> (TCP_RTT_SHIFT + 1))) {
+		/*
+		 * PERFORMANCE FIX: Use bit shifts instead of division.
+		 * (sb_hiwat / 2 / 4 * 3) = (sb_hiwat * 3) >> 3
+		 * (sb_hiwat + sb_hiwat / 2) = sb_hiwat + (sb_hiwat >> 1)
+		 */
+		if (tp->rfbuf_cnt > ((so->so_rcv.sb_hiwat * 3) >> 3) &&
 		    so->so_rcv.sb_hiwat < V_tcp_autorcvbuf_max) {
-			newsize = min((so->so_rcv.sb_hiwat + (so->so_rcv.sb_hiwat/2)), V_tcp_autorcvbuf_max);
+			newsize = min(so->so_rcv.sb_hiwat + (so->so_rcv.sb_hiwat >> 1), V_tcp_autorcvbuf_max);
 		}
 		TCP_PROBE6(receive__autoresize, NULL, tp, m, tp, th, newsize);
 

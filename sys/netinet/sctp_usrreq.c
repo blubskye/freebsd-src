@@ -62,15 +62,15 @@ sctp_init(void *arg SCTP_UNUSED)
 
 	/* Initialize and modify the sysctled variables */
 	sctp_init_sysctls();
-	if ((nmbclusters / 8) > SCTP_ASOC_MAX_CHUNKS_ON_QUEUE)
-		SCTP_BASE_SYSCTL(sctp_max_chunks_on_queue) = (nmbclusters / 8);
+	if ((nmbclusters >> 3) > SCTP_ASOC_MAX_CHUNKS_ON_QUEUE)
+		SCTP_BASE_SYSCTL(sctp_max_chunks_on_queue) = (nmbclusters >> 3);
 	/*
 	 * Allow a user to take no more than 1/2 the number of clusters or
 	 * the SB_MAX, whichever is smaller, for the send window.
 	 */
 	sb_max_adj = (u_long)((u_quad_t)(SB_MAX) * MCLBYTES / (MSIZE + MCLBYTES));
 	SCTP_BASE_SYSCTL(sctp_sendspace) = min(sb_max_adj,
-	    (((uint32_t)nmbclusters / 2) * MCLBYTES));
+	    (((uint32_t)nmbclusters >> 1) * MCLBYTES));
 	/*
 	 * Now for the recv window, should we take the same amount? or
 	 * should I do 1/2 the SB_MAX instead in the SB_MAX min above. For

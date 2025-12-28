@@ -415,7 +415,7 @@ netisr_pollmore(void)
 		 * hardclock ticks. Restart processing again, but slightly
 		 * reduce the burst size to prevent that this happens again.
 		 */
-		poll_burst -= (poll_burst / 8);
+		poll_burst -= (poll_burst >> 3);
 		if (poll_burst < 1)
 			poll_burst = 1;
 		netisr_poll_scheduled = 1;

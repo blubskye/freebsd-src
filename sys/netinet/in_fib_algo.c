@@ -549,7 +549,7 @@ lradix4_get_pref(const struct rib_rtable_info *rinfo)
 	if (rinfo->num_prefixes < 10)
 		return (250);
 	else if (rinfo->num_prefixes < 1000)
-		return (254 - rinfo->num_prefixes / 4);
+		return (254 - (rinfo->num_prefixes >> 2));
 	else
 		return (1);
 }

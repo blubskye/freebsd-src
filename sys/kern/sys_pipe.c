@@ -732,7 +732,7 @@ pipe_create(struct pipe *pipe, bool large_backing)
 	int error;
 
 	error = pipespace_new(pipe, !large_backing || amountpipekva >
-	    maxpipekva / 2 ? SMALL_PIPE_SIZE : PIPE_SIZE);
+	    (maxpipekva >> 1) ? SMALL_PIPE_SIZE : PIPE_SIZE);
 	if (error == 0)
 		pipe->pipe_ino = alloc_unr64(&pipeino_unr);
 	return (error);
@@ -789,7 +789,7 @@ pipe_read(struct file *fp, struct uio *uio, struct ucred *active_cred,
 	if (error)
 		goto locked_error;
 #endif
-	if (amountpipekva > (3 * maxpipekva) / 4) {
+	if (amountpipekva > (3 * maxpipekva) >> 2) {
 		if ((rpipe->pipe_state & PIPE_DIRECTW) == 0 &&
 		    rpipe->pipe_buffer.size > SMALL_PIPE_SIZE &&
 		    rpipe->pipe_buffer.cnt <= SMALL_PIPE_SIZE &&
@@ -1180,7 +1180,7 @@ pipe_write(struct file *fp, struct uio *uio, struct ucred *active_cred,
 	while (desiredsize < wpipe->pipe_buffer.cnt + uio->uio_resid) {
 		if (piperesizeallowed != 1)
 			break;
-		if (amountpipekva > maxpipekva / 2)
+		if (amountpipekva > (maxpipekva >> 1))
 			break;
 		if (desiredsize == BIG_PIPE_SIZE)
 			break;
@@ -1188,7 +1188,7 @@ pipe_write(struct file *fp, struct uio *uio, struct ucred *active_cred,
 	}
 
 	/* Choose a smaller size if we're in a OOM situation */
-	if (amountpipekva > (3 * maxpipekva) / 4 &&
+	if (amountpipekva > maxpipekva - (maxpipekva >> 2) &&
 	    wpipe->pipe_buffer.size > SMALL_PIPE_SIZE &&
 	    wpipe->pipe_buffer.cnt <= SMALL_PIPE_SIZE &&
 	    piperesizeallowed == 1)

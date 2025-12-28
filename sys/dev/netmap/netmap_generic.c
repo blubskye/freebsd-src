@@ -581,9 +581,9 @@ ring_middle(u_int inf, u_int sup, u_int lim)
 	u_int e;
 
 	if (sup >= inf) {
-		e = (sup + inf) / 2;
+		e = (sup + inf) >> 1;
 	} else { /* wrap around */
-		e = (sup + n + inf) / 2;
+		e = (sup + n + inf) >> 1;
 		if (e >= n) {
 			e -= n;
 		}

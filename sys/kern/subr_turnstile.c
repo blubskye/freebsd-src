@@ -94,7 +94,24 @@
 #define	TC_TABLESIZE	128			/* Must be power of 2. */
 #define	TC_MASK		(TC_TABLESIZE - 1)
 #define	TC_SHIFT	8
-#define	TC_HASH(lock)	(((uintptr_t)(lock) >> TC_SHIFT) & TC_MASK)
+/*
+ * PERFORMANCE FIX: Improved hash function that folds all address bits.
+ * Kernel lock addresses share upper bits, so we XOR-fold the address to
+ * mix entropy from all bit positions into the lower bits used for indexing.
+ * This reduces hash collisions for locks that differ only in upper bits.
+ */
+static inline u_int
+turnstile_hash(const void *lock)
+{
+	uintptr_t h = (uintptr_t)lock;
+
+	/* Fold 64-bit address into lower bits for better distribution */
+	h ^= h >> 32;
+	h ^= h >> 16;
+	h ^= h >> TC_SHIFT;
+	return ((u_int)h & TC_MASK);
+}
+#define	TC_HASH(lock)	turnstile_hash(lock)
 #define	TC_LOOKUP(lock)	&turnstile_chains[TC_HASH(lock)]
 
 /*

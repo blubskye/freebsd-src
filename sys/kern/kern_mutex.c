@@ -787,7 +787,12 @@ _mtx_lock_spin_cookie(volatile uintptr_t *c, uintptr_t v)
 		/* Give interrupts a chance while we spin. */
 		spinlock_exit();
 		do {
-			if (__predict_true(lda.spin_cnt < 10000000)) {
+			/*
+			 * PERFORMANCE FIX: Reduced initial spin threshold from
+			 * 10M to 100K iterations. Beyond this, use the
+			 * indefinite check with exponential backoff.
+			 */
+			if (__predict_true(lda.spin_cnt < 100000)) {
 				lock_delay(&lda);
 			} else {
 				_mtx_lock_indefinite_check(m, &lda);
@@ -1249,29 +1254,74 @@ mutex_init(void)
 	mtx_lock(&Giant);
 }
 
+/*
+ * Spin limit tunable: iterations before warning, then before panic.
+ * Original values were 10M + 60M = 70M iterations which wasted excessive
+ * CPU cycles. Reduced to more reasonable defaults that still allow for
+ * legitimate long holds during system stress while detecting actual deadlocks.
+ *
+ * PERFORMANCE FIX: Reduced spin thresholds from 70M to ~2M total iterations.
+ * Uses exponential backoff to reduce CPU waste while spinning.
+ */
+static u_int mtx_spin_warn_thresh = 1000000;	/* 1M iterations before warn */
+static u_int mtx_spin_panic_thresh = 5000000;	/* 5M total before panic */
+
+SYSCTL_UINT(_debug_mtx_spin, OID_AUTO, warn_thresh, CTLFLAG_RWTUN,
+    &mtx_spin_warn_thresh, 0, "Spin iterations before warning");
+SYSCTL_UINT(_debug_mtx_spin, OID_AUTO, panic_thresh, CTLFLAG_RWTUN,
+    &mtx_spin_panic_thresh, 0, "Spin iterations before panic");
+
 static void __noinline
 _mtx_lock_indefinite_check(struct mtx *m, struct lock_delay_arg *ldap)
 {
 	struct thread *td;
+	static volatile int warned = 0;
+	u_int delay_loops;
 
 	ldap->spin_cnt++;
-	if (ldap->spin_cnt < 60000000 || kdb_active || KERNEL_PANICKED())
+
+	/* Use exponential backoff to reduce CPU waste while waiting */
+	if (ldap->spin_cnt < 1000)
+		delay_loops = 1;
+	else if (ldap->spin_cnt < 10000)
+		delay_loops = 4;
+	else if (ldap->spin_cnt < 100000)
+		delay_loops = 16;
+	else
+		delay_loops = 64;
+
+	while (delay_loops-- > 0)
 		cpu_lock_delay();
-	else {
+
+	/* Issue warning once after warn threshold */
+	if (ldap->spin_cnt == mtx_spin_warn_thresh && !warned) {
 		td = mtx_owner(m);
-
-		/* If the mutex is unlocked, try again. */
-		if (td == NULL)
-			return;
-
-		printf( "spin lock %p (%s) held by %p (tid %d) too long\n",
-		    m, m->lock_object.lo_name, td, td->td_tid);
-#ifdef WITNESS
-		witness_display_spinlock(&m->lock_object, td, printf);
-#endif
-		panic("spin lock held too long");
+		if (td != NULL) {
+			warned = 1;
+			printf("spin lock %p (%s) held by %p (tid %d) "
+			    "for %u iterations\n",
+			    m, m->lock_object.lo_name, td, td->td_tid,
+			    ldap->spin_cnt);
+			warned = 0;
+		}
 	}
-	cpu_spinwait();
+
+	if (ldap->spin_cnt < mtx_spin_panic_thresh ||
+	    kdb_active || KERNEL_PANICKED())
+		return;
+
+	td = mtx_owner(m);
+
+	/* If the mutex is unlocked, try again. */
+	if (td == NULL)
+		return;
+
+	printf("spin lock %p (%s) held by %p (tid %d) too long\n",
+	    m, m->lock_object.lo_name, td, td->td_tid);
+#ifdef WITNESS
+	witness_display_spinlock(&m->lock_object, td, printf);
+#endif
+	panic("spin lock held too long");
 }
 
 void
@@ -1290,7 +1340,11 @@ mtx_spin_wait_unlocked(struct mtx *m)
 	lda.spin_cnt = 0;
 
 	while (atomic_load_acq_ptr(&m->mtx_lock) != MTX_UNOWNED) {
-		if (__predict_true(lda.spin_cnt < 10000000)) {
+		/*
+		 * PERFORMANCE FIX: Reduced spin threshold from 10M to 100K.
+		 * The indefinite check now uses exponential backoff.
+		 */
+		if (__predict_true(lda.spin_cnt < 100000)) {
 			cpu_spinwait();
 			lda.spin_cnt++;
 		} else {

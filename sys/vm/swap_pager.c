@@ -721,8 +721,8 @@ swap_pager_swap_init(void)
 	nsw_wcount_async_max = nsw_wcount_async;
 	mtx_init(&swbuf_mtx, "async swbuf mutex", NULL, MTX_DEF);
 
-	swwbuf_zone = pbuf_zsecond_create("swwbuf", nswbuf / 4);
-	swrbuf_zone = pbuf_zsecond_create("swrbuf", nswbuf / 2);
+	swwbuf_zone = pbuf_zsecond_create("swwbuf", nswbuf >> 2);
+	swrbuf_zone = pbuf_zsecond_create("swrbuf", nswbuf >> 1);
 
 	/*
 	 * Initialize our zone, taking the user's requested size or
@@ -2677,10 +2677,10 @@ swapon_check_swzone(void)
 {
 
 	/* recommend using no more than half that amount */
-	if (swap_total > swap_maxpages / 2) {
+	if (swap_total > swap_maxpages >> 1) {
 		printf("warning: total configured swap (%lu pages) "
 		    "exceeds maximum recommended amount (%lu pages).\n",
-		    swap_total, swap_maxpages / 2);
+		    swap_total, swap_maxpages >> 1);
 		printf("warning: increase kern.maxswzone "
 		    "or reduce amount of swap.\n");
 	}

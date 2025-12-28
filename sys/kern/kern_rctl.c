@@ -453,7 +453,7 @@ rctl_pcpu_available(const struct proc *p) {
 		if (limit > 2 * RCTL_PCPU_SHIFT)
 			minavailable -= RCTL_PCPU_SHIFT;
 		else
-			minavailable -= (limit / 2);
+			minavailable -= (limit >> 1);
 	}
 
 	return (minavailable);

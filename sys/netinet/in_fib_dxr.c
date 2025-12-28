@@ -232,12 +232,12 @@ VNET_DEFINE_STATIC(int, frag_limit) = 100;
 #define	DXR_LOOKUP_STAGE					\
 	if (masked_dst < range[middle].start) {			\
 		upperbound = middle;				\
-		middle = (middle + lowerbound) / 2;		\
+		middle = (middle + lowerbound) >> 1;		\
 	} else if (masked_dst < range[middle + 1].start)	\
 		return (range[middle].nexthop);			\
 	else {							\
 		lowerbound = middle + 1;			\
-		middle = (upperbound + middle + 1) / 2;		\
+		middle = (upperbound + middle + 1) >> 1;	\
 	}							\
 	if (upperbound == lowerbound)				\
 		return (range[lowerbound].nexthop);
@@ -273,12 +273,12 @@ range_lookup(struct range_entry_long *rt, struct direct_entry de, uint32_t dst)
 #endif
 
 	upperbound = de.fragments;
-	middle = upperbound / 2;
+	middle = upperbound >> 1;
 	struct range_entry_long *range = &rt[base];
 	if (__predict_false(IS_XL_FORMAT(de.fragments))) {
 		upperbound = *((uint32_t *) range);
 		range++;
-		middle = upperbound / 2;
+		middle = upperbound >> 1;
 	}
 
 	for (;;) {

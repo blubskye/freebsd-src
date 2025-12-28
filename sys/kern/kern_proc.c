@@ -190,7 +190,7 @@ procinit(void)
 	mtx_init(&ppeers_lock, "p_peers", NULL, MTX_DEF);
 	mtx_init(&procid_lock, "procid", NULL, MTX_DEF);
 	pidhashtbl = hashinit(maxproc / 4, M_PROC, &pidhash);
-	pidhashlock = (pidhash + 1) / 64;
+	pidhashlock = (pidhash + 1) >> 6;
 	if (pidhashlock > 0)
 		pidhashlock--;
 	pidhashtbl_lock = malloc(sizeof(*pidhashtbl_lock) * (pidhashlock + 1),

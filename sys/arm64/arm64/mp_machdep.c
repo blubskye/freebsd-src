@@ -581,7 +581,7 @@ start_cpu(u_int cpuid, uint64_t target_cpu, int domain, vm_paddr_t release_addr)
 
 	/* Wait for the AP to switch to its boot stack. */
 	while (atomic_load_int(&aps_started) < naps + 1)
-		cpu_spinwait();
+		__asm __volatile("wfe");
 	CPU_SET(cpuid, &all_cpus);
 
 	return (true);

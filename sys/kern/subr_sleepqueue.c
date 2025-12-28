@@ -100,8 +100,24 @@
 CTASSERT(powerof2(SC_TABLESIZE));
 #define	SC_MASK		(SC_TABLESIZE - 1)
 #define	SC_SHIFT	8
-#define	SC_HASH(wc)	((((uintptr_t)(wc) >> SC_SHIFT) ^ (uintptr_t)(wc)) & \
-			    SC_MASK)
+/*
+ * PERFORMANCE FIX: Improved hash function that folds all address bits.
+ * Kernel addresses share upper bits, so we XOR-fold the address to mix
+ * entropy from all bit positions into the lower bits used for indexing.
+ * This reduces hash collisions for addresses that differ only in upper bits.
+ */
+static inline u_int
+sleepq_hash(const void *wc)
+{
+	uintptr_t h = (uintptr_t)wc;
+
+	/* Fold 64-bit address into lower bits for better distribution */
+	h ^= h >> 32;
+	h ^= h >> 16;
+	h ^= h >> SC_SHIFT;
+	return ((u_int)h & SC_MASK);
+}
+#define	SC_HASH(wc)	sleepq_hash(wc)
 #define	SC_LOOKUP(wc)	&sleepq_chains[SC_HASH(wc)]
 #define NR_SLEEPQS      2
 /*

@@ -1529,7 +1529,7 @@ tcp_init(void *arg __unused)
 		 * (hashsize = maxsockets) however it's been
 		 * suggested that O(2) average is better.
 		 */
-		hashsize = maketcp_hashsize(maxsockets / 4);
+		hashsize = maketcp_hashsize(maxsockets >> 2);
 		/*
 		 * Our historical default is 512,
 		 * do not autotune lower than this.
@@ -2472,12 +2472,12 @@ tcp_discardcb(struct tcpcb *tp)
 		 * ssthresh is only set if packet loss occurred on a session.
 		 */
 		ssthresh = tp->snd_ssthresh;
-		if (ssthresh != 0 && ssthresh < so->so_snd.sb_hiwat / 2) {
+		if (ssthresh != 0 && ssthresh < so->so_snd.sb_hiwat >> 1) {
 			/*
 			 * convert the limit from user data bytes to
 			 * packets then to packet data bytes.
 			 */
-			ssthresh = (ssthresh + tp->t_maxseg / 2) / tp->t_maxseg;
+			ssthresh = (ssthresh + (tp->t_maxseg >> 1)) / tp->t_maxseg;
 			if (ssthresh < 2)
 				ssthresh = 2;
 			ssthresh *= (tp->t_maxseg +

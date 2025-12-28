@@ -579,7 +579,7 @@ threadinit(void)
 	    thread_ctor, thread_dtor, thread_init, thread_fini,
 	    UMA_ALIGN_CACHE_AND_MASK(32 - 1), UMA_ZONE_NOFREE);
 	tidhashtbl = hashinit(maxproc / 2, M_TIDHASH, &tidhash);
-	tidhashlock = (tidhash + 1) / 64;
+	tidhashlock = (tidhash + 1) >> 6;
 	if (tidhashlock > 0)
 		tidhashlock--;
 	tidhashtbl_lock = malloc(sizeof(*tidhashtbl_lock) * (tidhashlock + 1),

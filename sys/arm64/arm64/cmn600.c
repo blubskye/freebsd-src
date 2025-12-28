@@ -534,7 +534,10 @@ pmu_cmn600_free_localpmc(void *arg, int nodeid, int node_type, int counter)
 	do {
 		new = old = node->nd_paired;
 		new &= ~(1 << counter);
-	} while (atomic_cmpset_32(&node->nd_paired, old, new) == 0);
+		if (atomic_cmpset_32(&node->nd_paired, old, new) != 0)
+			break;
+		cpu_spinwait();
+	} while (1);
 	return (0);
 }
 

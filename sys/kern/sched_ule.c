@@ -212,12 +212,18 @@ _Static_assert(SCHED_CPU_DECAY_NUMER >= 0 && SCHED_CPU_DECAY_DENOM > 0 &&
  * SLP_RUN_FORK:	Maximum slp+run time to inherit at fork time.
  * INTERACT_MAX:	Maximum interactivity value.  Smaller is better.
  * INTERACT_THRESH:	Threshold for placement on the current runq.
+ *
+ * PERFORMANCE FIX: Changed scale from 100 to 128 (power of 2) to allow
+ * shift operations instead of expensive integer division in the hot path
+ * sched_interact_score(). The threshold is proportionally adjusted:
+ * 30/100 * 128 = 38.4 ≈ 38
  */
 #define	SCHED_SLP_RUN_MAX	((hz * 5) << SCHED_TICK_SHIFT)
 #define	SCHED_SLP_RUN_FORK	((hz / 2) << SCHED_TICK_SHIFT)
-#define	SCHED_INTERACT_MAX	(100)
-#define	SCHED_INTERACT_HALF	(SCHED_INTERACT_MAX / 2)
-#define	SCHED_INTERACT_THRESH	(30)
+#define	SCHED_INTERACT_MAX	(128)
+#define	SCHED_INTERACT_HALF	(SCHED_INTERACT_MAX / 2)	/* 64, power of 2 */
+#define	SCHED_INTERACT_SHIFT	(6)	/* log2(SCHED_INTERACT_HALF) for shift ops */
+#define	SCHED_INTERACT_THRESH	(38)
 
 /*
  * These parameters determine the slice behavior for batch work.
@@ -1724,11 +1730,15 @@ sched_initticks(void *dummy)
  * interactivity score = 2 * scaling factor  -  ---------------------
  *                                              run time / sleep time
  */
+/*
+ * PERFORMANCE FIX: Use bit shifts instead of division since
+ * SCHED_INTERACT_HALF is now a power of 2 (64).
+ */
 static int
 sched_interact_score(struct thread *td)
 {
 	struct td_sched *ts;
-	int div;
+	u_int div;
 
 	ts = td_get_sched(td);
 	/*
@@ -1741,12 +1751,18 @@ sched_interact_score(struct thread *td)
 			return (SCHED_INTERACT_HALF);
 
 	if (ts->ts_runtime > ts->ts_slptime) {
-		div = max(1, ts->ts_runtime / SCHED_INTERACT_HALF);
+		/* Use shift instead of division by SCHED_INTERACT_HALF */
+		div = ts->ts_runtime >> SCHED_INTERACT_SHIFT;
+		if (div == 0)
+			div = 1;
 		return (SCHED_INTERACT_HALF +
 		    (SCHED_INTERACT_HALF - (ts->ts_slptime / div)));
 	}
 	if (ts->ts_slptime > ts->ts_runtime) {
-		div = max(1, ts->ts_slptime / SCHED_INTERACT_HALF);
+		/* Use shift instead of division by SCHED_INTERACT_HALF */
+		div = ts->ts_slptime >> SCHED_INTERACT_SHIFT;
+		if (div == 0)
+			div = 1;
 		return (ts->ts_runtime / div);
 	}
 	/* runtime == slptime */
@@ -1757,7 +1773,6 @@ sched_interact_score(struct thread *td)
 	 * This can happen if slptime and runtime are 0.
 	 */
 	return (0);
-
 }
 
 /*
@@ -2763,7 +2778,7 @@ sched_clock(struct thread *td, int cnt)
 	if (tdq->tdq_ts_off == tdq->tdq_ts_deq_off) {
 		tdq->tdq_ts_ticks += cnt;
 		tdq->tdq_ts_off = (tdq->tdq_ts_off + 2 * cnt -
-		    tdq-> tdq_ts_ticks / 4) % RQ_TS_POL_MODULO;
+		    (tdq->tdq_ts_ticks >> 2)) % RQ_TS_POL_MODULO;
 		tdq->tdq_ts_ticks %= 4;
 		tdq_advance_ts_deq_off(tdq, false);
 	}

@@ -615,7 +615,7 @@ after_sack_rexmit:
 		}
 		if (tp->t_flags & TF_FORCEDATA)		/* typ. timeout case */
 			goto send;
-		if (len >= tp->max_sndwnd / 2 && tp->max_sndwnd > 0)
+		if (len >= (tp->max_sndwnd >> 1) && tp->max_sndwnd > 0)
 			goto send;
 		if (SEQ_LT(tp->snd_nxt, tp->snd_max))	/* retransmit case */
 			goto send;
@@ -681,8 +681,8 @@ after_sack_rexmit:
 			goto dontupdate;
 
 		if (adv >= (int32_t)(2 * tp->t_maxseg) &&
-		    (adv >= (int32_t)(so->so_rcv.sb_hiwat / 4) ||
-		     recwin <= (so->so_rcv.sb_hiwat / 8) ||
+		    (adv >= (int32_t)(so->so_rcv.sb_hiwat >> 2) ||
+		     recwin <= (so->so_rcv.sb_hiwat >> 3) ||
 		     so->so_rcv.sb_hiwat <= 8 * tp->t_maxseg ||
 		     adv >= TCP_MAXWIN << tp->rcv_scale))
 			goto send;
@@ -1273,7 +1273,7 @@ send:
 	if (flags & TH_RST) {
 		recwin = 0;
 	} else {
-		if (recwin < (so->so_rcv.sb_hiwat / 4) &&
+		if (recwin < (so->so_rcv.sb_hiwat >> 2) &&
 		    recwin < tp->t_maxseg)
 			recwin = 0;
 		if (SEQ_GT(tp->rcv_adv, tp->rcv_nxt) &&
@@ -1761,9 +1761,7 @@ tcp_setpersist(struct tcpcb *tp)
 	TCPT_RANGESET(tt, t * tcp_backoff[tp->t_rxtshift],
 		      tcp_persmin, tcp_persmax);
 	if (TP_MAXUNACKTIME(tp) && tp->t_acktime) {
-		maxunacktime = tp->t_acktime + TP_MAXUNACKTIME(tp) - ticks;
-		if (maxunacktime < 1)
-			maxunacktime = 1;
+		maxunacktime = max(tp->t_acktime + TP_MAXUNACKTIME(tp) - ticks, 1);
 		if (maxunacktime < tt)
 			tt = maxunacktime;
 	}

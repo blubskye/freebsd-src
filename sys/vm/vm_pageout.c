@@ -1729,7 +1729,7 @@ vm_pageout_inactive_dispatch(struct vm_domain *vmd, int shortage)
 		pps = (freed * 10) / ((us * 10) / 1000000);
 	else
 		pps = (1000000 / us) * freed;
-	vmd->vmd_inactive_pps = (vmd->vmd_inactive_pps / 2) + (pps / 2);
+	vmd->vmd_inactive_pps = (vmd->vmd_inactive_pps >> 1) + (pps >> 1);
 
 	return (shortage - freed);
 }

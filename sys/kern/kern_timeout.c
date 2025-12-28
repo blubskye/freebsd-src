@@ -454,7 +454,7 @@ callout_process(sbintime_t now)
 	else
 		lookahead = SBT_1S;
 	first = last = now;
-	first += (lookahead / 2);
+	first += (lookahead >> 1);
 	last += lookahead;
 	last &= (0xffffffffffffffffLLU << (32 - CC_HASH_SHIFT));
 	lastb = callout_hash(last) - 1;
