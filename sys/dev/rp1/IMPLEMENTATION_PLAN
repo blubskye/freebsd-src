@@ -1,0 +1,359 @@
+RPi5 Network Driver Implementation Plan
+=======================================
+
+This document provides the detailed implementation plan to bring
+the RPi5 Ethernet driver from skeleton to fully functional.
+
+Current State (Completed)
+-------------------------
+- RP1 PCIe driver probes and attaches
+- BAR0 mapped for peripheral access
+- GENET driver skeleton attaches to RP1 bus
+- MAC reset sequence implemented
+- ifnet allocated with basic capabilities
+- MII bus read/write methods implemented
+
+Remaining Work
+--------------
+
+PHASE 2: RP1 Infrastructure (Prerequisites)
+============================================
+
+2A. MSI-X Interrupt Setup [rp1.c]
+---------------------------------
+The RP1 uses MSI-X for interrupt delivery. Each peripheral gets
+its own interrupt vector.
+
+Tasks:
+1. Allocate MSI-X vectors (pci_alloc_msix)
+   - RP1 supports 64 MSI-X vectors
+   - Ethernet uses vector 6 (RP1_INT_ETH)
+
+2. Map BAR2 for MSI-X configuration registers
+   - Used for interrupt acknowledge (IACK)
+   - Level-triggered interrupts need IACK
+
+3. Set up interrupt domain
+   - Route child interrupts through parent
+   - Handle IACK for level-triggered sources
+
+Code pattern:
+    int msix_count = 64;
+    pci_alloc_msix(dev, &msix_count);
+    for (i = 0; i < msix_count; i++) {
+        sc->msix_irq[i] = bus_alloc_resource_any(dev, SYS_RES_IRQ,
+            &i, RF_ACTIVE);
+    }
+
+2B. Child Device Enumeration [rp1.c]
+------------------------------------
+The RP1 parent driver needs to create child devices for each
+peripheral block.
+
+Tasks:
+1. Add device_add_child() for Ethernet
+   - Pass offset and size via ivars
+   - Child probes based on presence check
+
+2. Implement bus_read_ivar/bus_write_ivar
+   - Pass configuration to children
+
+3. Implement interrupt routing
+   - bus_setup_intr routes to parent MSI-X
+   - bus_teardown_intr cleans up
+
+Code pattern:
+    child = device_add_child(dev, "rp1eth", -1);
+    device_set_ivars(child, &eth_ivars);
+    bus_generic_attach(dev);
+
+
+PHASE 3: DMA Infrastructure [rp1_eth.c]
+=======================================
+
+3A. DMA Tag Creation
+--------------------
+Create DMA tags for TX and RX buffers.
+
+Tasks:
+1. Create parent DMA tag from PCI device
+   - Note: Parent is RP1, which is a PCIe device
+   - Need to get DMA tag from grandparent
+
+2. Create TX buffer tag
+   - Alignment: 4 bytes
+   - Max address: 40-bit (BUS_SPACE_MAXADDR_40BIT)
+   - Max segments: 20 (TX_MAX_SEGS)
+   - Max size: MCLBYTES
+
+3. Create RX buffer tag
+   - Same limits, but single segment
+
+4. Create DMA maps for each ring entry
+   - TX_DESC_COUNT maps for TX
+   - RX_DESC_COUNT maps for RX
+
+Code to add to rp1_eth_softc:
+    bus_dma_tag_t       tx_buf_tag;
+    bus_dma_tag_t       rx_buf_tag;
+
+3B. TX/RX Ring Initialization
+-----------------------------
+Initialize the hardware descriptor rings.
+
+Tasks:
+1. Implement rp1_eth_init_txring()
+   - Reset ring pointers
+   - Configure ring buffer size
+   - Enable TX DMA for queue
+
+2. Implement rp1_eth_init_rxring()
+   - Reset ring pointers
+   - Configure ring buffer size
+   - Pre-allocate RX buffers
+   - Enable RX DMA for queue
+
+3. Implement rp1_eth_newbuf_rx()
+   - Allocate mbuf cluster
+   - Map for DMA
+   - Write descriptor address
+
+Ring structure:
+    struct tx_queue {
+        int             hwindex;    // Hardware queue (16 = default)
+        int             nentries;
+        u_int           queued;
+        u_int           cur;
+        u_int           next;
+        u_int           prod_idx;
+        u_int           cons_idx;
+        struct rp1_eth_ring_ent *entries;
+    };
+
+
+PHASE 4: Data Path [rp1_eth.c]
+==============================
+
+4A. Interrupt Handler
+---------------------
+Implement the main interrupt handler.
+
+Tasks:
+1. Implement rp1_eth_intr()
+   - Read GENET_INTRL2_CPU_STAT
+   - Mask processed interrupts
+   - Call TX/RX handlers as needed
+   - Clear interrupt status
+
+2. Register interrupt with parent RP1
+   - Request IRQ from parent (vector 6)
+   - Set up handler
+
+Code pattern:
+    static void
+    rp1_eth_intr(void *arg)
+    {
+        struct rp1_eth_softc *sc = arg;
+        uint32_t status;
+
+        RP1_ETH_LOCK(sc);
+        status = RD4(sc, GENET_INTRL2_CPU_STAT);
+        status &= ~RD4(sc, GENET_INTRL2_CPU_STAT_MASK);
+        WR4(sc, GENET_INTRL2_CPU_CLEAR, status);
+
+        if (status & GENET_IRQ_RXDMA_DONE)
+            rp1_eth_rxintr(sc);
+        if (status & GENET_IRQ_TXDMA_DONE)
+            rp1_eth_txintr(sc);
+
+        RP1_ETH_UNLOCK(sc);
+    }
+
+4B. TX Path
+-----------
+Implement packet transmission.
+
+Tasks:
+1. Implement rp1_eth_encap()
+   - Load mbuf into DMA map
+   - Handle fragmented mbufs (m_collapse if needed)
+   - Write TX descriptors
+   - Update producer index
+
+2. Implement rp1_eth_start() fully
+   - Dequeue packets from ifq
+   - Call encap for each
+   - Handle queue full condition
+
+3. Implement rp1_eth_txintr()
+   - Read consumer index
+   - Free completed mbufs
+   - Update statistics
+   - Clear OACTIVE if queue drained
+
+4. Implement checksum offload
+   - Prepend status block for TX csum
+   - Parse headers for offset calculation
+
+4C. RX Path
+-----------
+Implement packet reception.
+
+Tasks:
+1. Implement rp1_eth_rxintr()
+   - Read producer index
+   - Process received packets
+   - Check status for errors
+   - Pass good packets to if_input
+
+2. Implement buffer recycling
+   - Allocate new buffer
+   - Reuse old buffer on allocation failure
+
+3. Implement checksum verification
+   - Check status block for csum OK
+   - Set mbuf flags accordingly
+
+
+PHASE 5: PHY Management [rp1_eth.c]
+===================================
+
+Tasks:
+1. Attach MII bus
+   - Call mii_attach() in attach
+   - PHY is at address 1 (BCM54213)
+   - Use RGMII mode
+
+2. Implement rp1_eth_miibus_statchg()
+   - Update MAC speed/duplex
+   - Configure RGMII OOB control
+   - Handle link up/down
+
+3. Implement rp1_eth_media_status()
+   - Report current media state
+
+4. Implement rp1_eth_media_change()
+   - Trigger PHY renegotiation
+
+5. Implement rp1_eth_tick()
+   - Periodic PHY polling
+   - Call mii_tick()
+
+Code pattern:
+    error = mii_attach(dev, &sc->miibus, sc->ifp,
+        rp1_eth_media_change, rp1_eth_media_status,
+        BMSR_DEFCAPMASK, MII_PHY_ANY, MII_OFFSET_ANY,
+        MIIF_DOPAUSE);
+
+
+PHASE 6: Full Initialization [rp1_eth.c]
+========================================
+
+Tasks:
+1. Complete rp1_eth_init_locked()
+   - Set port control for external GPHY
+   - Configure MAC address
+   - Setup RX filter
+   - Initialize TX/RX rings
+   - Enable MAC TX/RX
+   - Enable interrupts
+   - Start link timer
+
+2. Complete rp1_eth_stop()
+   - Disable interrupts
+   - Stop TX/RX DMA
+   - Drain rings
+   - Release buffers
+
+3. Implement rp1_eth_setup_rxfilter()
+   - Configure multicast filter
+   - Handle promiscuous mode
+
+4. Implement rp1_eth_set_enaddr()
+   - Program MAC address registers
+
+5. MAC address source
+   - Read from hardware (if preserved)
+   - Read from DTB (if available)
+   - Generate from hostid (fallback)
+
+
+Testing Milestones
+==================
+
+After Phase 2:
+- RP1 shows child devices in devinfo
+- Interrupts can be allocated
+
+After Phase 3:
+- DMA rings allocate successfully
+- No memory leaks on unload
+
+After Phase 4:
+- ping works (basic connectivity)
+- iperf shows reasonable throughput
+
+After Phase 5:
+- Link detection works
+- Speed/duplex autoneg works
+
+After Phase 6:
+- Full functionality
+- Stress testing passes
+- No panics or leaks
+
+
+Implementation Order
+====================
+
+Recommended order to minimize debugging:
+
+1. Phase 3A (DMA tags) - can test allocation/free
+2. Phase 3B (Ring init) - can verify register writes
+3. Phase 2A (MSI-X) - needed before interrupts work
+4. Phase 2B (Child enum) - connect interrupt to child
+5. Phase 5 (PHY) - get link up first
+6. Phase 4A (Interrupt) - verify interrupt delivery
+7. Phase 4C (RX) - easier to debug than TX
+8. Phase 4B (TX) - complete with RX working
+9. Phase 6 (Full init) - tie everything together
+
+
+Files to Modify
+===============
+
+sys/dev/rp1/rp1.c:
+  - Add MSI-X setup
+  - Add child enumeration
+  - Add interrupt routing
+
+sys/dev/rp1/rp1_var.h:
+  - Add child ivar definitions
+  - Add interrupt routing structures
+
+sys/dev/rp1/rp1_eth.c:
+  - All Phase 3-6 work
+  - Majority of implementation
+
+Reference Code
+==============
+
+Primary reference: sys/arm64/broadcom/genet/if_genet.c
+  - gen_bus_dma_init() -> DMA setup
+  - gen_init_txring()/gen_init_rxring() -> Ring init
+  - gen_intr() -> Interrupt handler
+  - gen_encap() -> TX encapsulation
+  - gen_rxintr() -> RX processing
+  - gen_tick() -> Link polling
+
+Secondary reference: Linux drivers/mfd/rp1.c
+  - MSI-X setup patterns
+  - Interrupt acknowledge
+
+Lines of code estimate:
+  - Phase 2: ~150 lines
+  - Phase 3: ~200 lines
+  - Phase 4: ~400 lines
+  - Phase 5: ~100 lines
+  - Phase 6: ~150 lines
+  - Total: ~1000 additional lines

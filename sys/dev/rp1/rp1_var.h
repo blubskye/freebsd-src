@@ -79,6 +79,28 @@
 #define	RP1_INT_PROC_MISC	60
 #define	RP1_INT_END		64
 
+/* Instance variables for child devices */
+enum {
+	RP1_IVAR_OFFSET,	/* Peripheral offset within BAR0 */
+	RP1_IVAR_SIZE,		/* Peripheral register size */
+	RP1_IVAR_IRQ,		/* MSI-X interrupt number */
+};
+
+/* Accessor macros for child ivars */
+#define	RP1_ACCESSOR(var, ivar, type)					\
+	static __inline type						\
+	rp1_get_ ## var(device_t dev)					\
+	{								\
+		uintptr_t v;						\
+		BUS_READ_IVAR(device_get_parent(dev), dev,		\
+		    RP1_IVAR_ ## ivar, &v);				\
+		return ((type)v);					\
+	}
+
+RP1_ACCESSOR(offset, OFFSET, bus_size_t)
+RP1_ACCESSOR(size, SIZE, bus_size_t)
+RP1_ACCESSOR(irq, IRQ, int)
+
 /* RP1 softc structure */
 struct rp1_softc {
 	device_t		dev;
@@ -87,6 +109,8 @@ struct rp1_softc {
 	struct resource		*msix_res;	/* BAR2 - MSI-X config */
 	bus_space_tag_t		bst;
 	bus_space_handle_t	bsh;
+	bus_space_tag_t		msix_bst;
+	bus_space_handle_t	msix_bsh;
 	uint32_t		chip_id;
 	uint32_t		platform;
 	bool			attached;
@@ -109,5 +133,8 @@ struct rp1_child_info {
 #define	RP1_LOCK(sc)		mtx_lock(&(sc)->mtx)
 #define	RP1_UNLOCK(sc)		mtx_unlock(&(sc)->mtx)
 #define	RP1_ASSERT_LOCKED(sc)	mtx_assert(&(sc)->mtx, MA_OWNED)
+
+/* Function prototypes for child drivers */
+void	rp1_intr_ack(device_t dev, int irqnum);
 
 #endif /* _RP1_VAR_H_ */
