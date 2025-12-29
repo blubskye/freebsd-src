@@ -568,9 +568,13 @@ swapped_bs_rm_4(bus_space_handle_t bsh, bus_size_t ofs, uint32_t *addr, size_t c
 }
 
 static void
-swapped_bs_rm_8(bus_space_handle_t bshh, bus_size_t ofs, uint64_t *addr, size_t cnt)
+swapped_bs_rm_8(bus_space_handle_t bsh, bus_size_t ofs, uint64_t *addr, size_t cnt)
 {
-	TODO;
+	volatile uint64_t *s = __ppc_ba(bsh, ofs);
+
+	while (cnt--)
+		*addr++ = le64toh(*s);
+	powerpc_iomb();
 }
 
 static void
@@ -606,7 +610,11 @@ swapped_bs_rr_4(bus_space_handle_t bsh, bus_size_t ofs, uint32_t *addr, size_t c
 static void
 swapped_bs_rr_8(bus_space_handle_t bsh, bus_size_t ofs, uint64_t *addr, size_t cnt)
 {
-	TODO;
+	volatile uint64_t *s = __ppc_ba(bsh, ofs);
+
+	while (cnt--)
+		*addr++ = le64toh(*s++);
+	powerpc_iomb();
 }
 
 static void
@@ -678,7 +686,11 @@ static void
 swapped_bs_wm_8(bus_space_handle_t bsh, bus_size_t ofs, const uint64_t *addr,
     bus_size_t cnt)
 {
-	TODO;
+	volatile uint64_t *d = __ppc_ba(bsh, ofs);
+
+	while (cnt--)
+		*d = htole64(*addr++);
+	powerpc_iomb();
 }
 
 static void
@@ -718,7 +730,11 @@ static void
 swapped_bs_wr_8(bus_space_handle_t bsh, bus_size_t ofs, const uint64_t *addr,
     size_t cnt)
 {
-	TODO;
+	volatile uint64_t *d = __ppc_ba(bsh, ofs);
+
+	while (cnt--)
+		*d++ = htole64(*addr++);
+	powerpc_iomb();
 }
 
 static void
@@ -754,7 +770,12 @@ swapped_bs_sm_4(bus_space_handle_t bsh, bus_size_t ofs, uint32_t val, size_t cnt
 static void
 swapped_bs_sm_8(bus_space_handle_t bsh, bus_size_t ofs, uint64_t val, size_t cnt)
 {
-	TODO;
+	volatile uint64_t *d = __ppc_ba(bsh, ofs);
+	uint64_t swapped = htole64(val);
+
+	while (cnt--)
+		*d = swapped;
+	powerpc_iomb();
 }
 
 static void
@@ -790,7 +811,12 @@ swapped_bs_sr_4(bus_space_handle_t bsh, bus_size_t ofs, uint32_t val, size_t cnt
 static void
 swapped_bs_sr_8(bus_space_handle_t bsh, bus_size_t ofs, uint64_t val, size_t cnt)
 {
-	TODO;
+	volatile uint64_t *d = __ppc_ba(bsh, ofs);
+	uint64_t swapped = htole64(val);
+
+	while (cnt--)
+		*d++ = swapped;
+	powerpc_iomb();
 }
 
 #if BYTE_ORDER == LITTLE_ENDIAN

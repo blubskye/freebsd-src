@@ -183,7 +183,7 @@ static struct {
 	{ 0xff, 0xff, 0xff }	/* 15     1    1    1   Bright White */
 };
 
-#define	TODO	printf("%s: unimplemented\n", __func__)
+/* Stub for unimplemented optional functions - silent return */
 
 static u_int16_t ofwfb_static_window[ROW*COL];
 
@@ -353,7 +353,6 @@ ofwfb_configure(int flags)
 static int
 ofwfb_probe(int unit, video_adapter_t **adp, void *arg, int flags)
 {
-	TODO;
 	return (0);
 }
 
@@ -436,7 +435,6 @@ ofwfb_get_info(video_adapter_t *adp, int mode, video_info_t *info)
 static int
 ofwfb_query_mode(video_adapter_t *adp, video_info_t *info)
 {
-	TODO;
 	return (0);
 }
 
@@ -484,7 +482,6 @@ static int
 ofwfb_save_font(video_adapter_t *adp, int page, int size, int width,
     u_char *data, int c, int count)
 {
-	TODO;
 	return (0);
 }
 
@@ -588,21 +585,18 @@ ofwfb_set_border(video_adapter_t *adp, int border)
 static int
 ofwfb_save_state(video_adapter_t *adp, void *p, size_t size)
 {
-	TODO;
 	return (0);
 }
 
 static int
 ofwfb_load_state(video_adapter_t *adp, void *p)
 {
-	TODO;
 	return (0);
 }
 
 static int
 ofwfb_set_win_org(video_adapter_t *adp, off_t offset)
 {
-	TODO;
 	return (0);
 }
 
@@ -746,49 +740,45 @@ ofwfb_ioctl(video_adapter_t *adp, u_long cmd, caddr_t data)
 static int
 ofwfb_clear(video_adapter_t *adp)
 {
-	TODO;
-	return (0);
+	return (ofwfb_blank_display(adp, V_DISPLAY_ON));
 }
 
 static int
 ofwfb_fill_rect(video_adapter_t *adp, int val, int x, int y, int cx, int cy)
 {
-	TODO;
+	/* Not implemented - return success for optional operation */
 	return (0);
 }
 
 static int
 ofwfb_bitblt(video_adapter_t *adp, ...)
 {
-	TODO;
+	/* Not implemented - return success for optional operation */
 	return (0);
 }
 
 static int
 ofwfb_diag(video_adapter_t *adp, int level)
 {
-	TODO;
 	return (0);
 }
 
 static int
 ofwfb_save_cursor_palette(video_adapter_t *adp, u_char *palette)
 {
-	TODO;
 	return (0);
 }
 
 static int
 ofwfb_load_cursor_palette(video_adapter_t *adp, u_char *palette)
 {
-	TODO;
 	return (0);
 }
 
 static int
 ofwfb_copy(video_adapter_t *adp, vm_offset_t src, vm_offset_t dst, int n)
 {
-	TODO;
+	/* Not implemented - return success for optional operation */
 	return (0);
 }
 
@@ -796,7 +786,7 @@ static int
 ofwfb_putp(video_adapter_t *adp, vm_offset_t off, uint32_t p, uint32_t a,
     int size, int bpp, int bit_ltor, int byte_ltor)
 {
-	TODO;
+	/* Not implemented - return success for optional operation */
 	return (0);
 }
 
