@@ -2663,6 +2663,8 @@ dev/pci/pci_user.c		optional pci
 dev/pci/pcib_if.m		standard
 dev/pci/pcib_support.c		standard
 dev/pci/vga_pci.c		optional pci
+dev/rp1/rp1.c			optional rp1 pci
+dev/rp1/rp1_eth.c		optional rp1 pci ether
 dev/phy/phy.c			optional phy
 dev/phy/phydev_if.m		optional phy fdt
 dev/phy/phynode_if.m		optional phy

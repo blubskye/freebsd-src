@@ -1,0 +1,146 @@
+Raspberry Pi 5 Network Driver Porting Roadmap
+==============================================
+
+This document outlines the phased implementation plan for porting
+the Raspberry Pi 5 network drivers from Linux to FreeBSD.
+
+Hardware Overview
+-----------------
+The Raspberry Pi 5 uses a different architecture than RPi4:
+
+- BCM2712 SoC (Cortex-A76 quad-core)
+- RP1 I/O controller (connected via PCIe)
+  - Vendor ID: 0x1de4 (Raspberry Pi)
+  - Device ID: 0x0001 (RP1 C0)
+- Ethernet: GENET MAC (same IP as RPi4, but accessed via RP1)
+- PHY: BCM54213PE (same as RPi4)
+- WiFi: CYW43455 (via SDIO on RP1)
+
+Phase 0: RP1 PCIe Controller (CURRENT)
+--------------------------------------
+Status: Skeleton complete
+
+Files:
+  - sys/dev/rp1/rp1.c         - RP1 PCIe driver
+  - sys/dev/rp1/rp1_var.h     - Shared definitions
+
+Tasks:
+  [x] Basic PCIe probe/attach
+  [x] BAR0 mapping (peripheral registers)
+  [ ] BAR2 mapping (MSI-X configuration)
+  [ ] MSI-X interrupt setup (64 vectors)
+  [ ] Clock tree initialization
+  [ ] Child device enumeration
+
+Phase 1: GENET Ethernet - Basic Structure
+-----------------------------------------
+Status: Skeleton complete
+
+Files:
+  - sys/dev/rp1/rp1_eth.c     - GENET Ethernet driver
+  - sys/dev/rp1/rp1_ethreg.h  - Register definitions
+
+Tasks:
+  [x] Driver skeleton and probe/attach
+  [x] Register definitions (from existing genet)
+  [x] MAC reset sequence
+  [x] ifnet allocation
+  [ ] Interrupt handler hookup
+  [ ] MAC address configuration
+
+Phase 2: GENET Ethernet - DMA Rings
+-----------------------------------
+Status: Pending
+
+Tasks:
+  [ ] TX descriptor ring allocation
+  [ ] RX descriptor ring allocation
+  [ ] DMA tag creation
+  [ ] Ring initialization
+  [ ] Ring teardown
+
+Phase 3: GENET Ethernet - TX Path
+---------------------------------
+Status: Pending
+
+Tasks:
+  [ ] Packet encapsulation
+  [ ] Checksum offload setup
+  [ ] TX interrupt handling
+  [ ] TX completion processing
+  [ ] Watchdog timer
+
+Phase 4: GENET Ethernet - RX Path
+---------------------------------
+Status: Pending
+
+Tasks:
+  [ ] RX buffer allocation
+  [ ] RX interrupt handling
+  [ ] Packet reception
+  [ ] Checksum verification
+  [ ] mbuf handling
+
+Phase 5: GENET Ethernet - PHY Management
+----------------------------------------
+Status: Pending
+
+Tasks:
+  [ ] MII bus attachment
+  [ ] BCM54213 PHY detection
+  [ ] RGMII configuration
+  [ ] Link state handling
+  [ ] Speed/duplex negotiation
+
+Phase 6: GENET Ethernet - Full Functionality
+--------------------------------------------
+Status: Pending
+
+Tasks:
+  [ ] Promiscuous mode
+  [ ] Multicast filtering
+  [ ] VLAN support
+  [ ] Jumbo frames (if supported)
+  [ ] Power management
+  [ ] Performance optimization
+
+Phase 7: WiFi - CYW43455 (Future)
+---------------------------------
+Status: Not started
+
+The WiFi chip is a CYW43455 connected via SDIO through the RP1.
+This requires:
+  [ ] RP1 SDIO controller driver
+  [ ] brcmfmac driver port (or use LinuxKPI)
+  [ ] Firmware loading
+  [ ] cfg80211 -> net80211 shim
+
+Build Instructions
+------------------
+To build as a kernel module:
+
+    cd /usr/src/sys/modules/rp1
+    make
+
+To include in kernel:
+
+    Add to kernel config:
+        device rp1
+
+Testing Notes
+-------------
+Testing requires Raspberry Pi 5 hardware. The driver can be
+loaded with:
+
+    kldload rp1
+
+Check dmesg for:
+    rp1: RP1 chip_id=0x... platform=0x...
+    rp1eth: GENET revision 0x...
+
+Reference Materials
+-------------------
+- Linux drivers: drivers/mfd/rp1.c, drivers/net/ethernet/broadcom/genet/
+- FreeBSD genet: sys/arm64/broadcom/genet/
+- RP1 datasheet: (Raspberry Pi documentation)
+- BCM54213 datasheet: (Broadcom)
