@@ -652,7 +652,7 @@ ure_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 		caps = if_getcapenable(ifp);
 		DEVPRINTFN(13, sc->sc_ue.ue_dev, "rcb start\n");
 		while (actlen > 0) {
-			if (actlen < (int)(sizeof(pkt))) {
+			if (__predict_false(actlen < (int)(sizeof(pkt)))) {
 				if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 				goto tr_setup;
 			}
@@ -669,7 +669,7 @@ ure_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 			    pkt.ure_rsvd2, pkt.ure_rsvd3, pkt.ure_rsvd4);
 			DEVPRINTFN(13, sc->sc_ue.ue_dev, "len: %d\n", len);
 
-			if (len >= URE_RXPKT_LEN_MASK) {
+			if (__predict_false(len >= URE_RXPKT_LEN_MASK)) {
 				/*
 				 * drop the rest of this segment.  With out
 				 * more information, we cannot know where next
@@ -682,16 +682,16 @@ ure_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 				goto tr_setup;
 			}
 
-			if (actlen < len) {
+			if (__predict_false(actlen < len)) {
 				if_inc_counter(ifp, IFCOUNTER_IERRORS, 1);
 				goto tr_setup;
 			}
 
-			if (len >= (ETHER_HDR_LEN + ETHER_CRC_LEN))
+			if (__predict_true(len >= (ETHER_HDR_LEN + ETHER_CRC_LEN)))
 				m = ure_makembuf(pc, off, len - ETHER_CRC_LEN);
 			else
 				m = NULL;
-			if (m == NULL) {
+			if (__predict_false(m == NULL)) {
 				if_inc_counter(ifp, IFCOUNTER_IQDROPS, 1);
 			} else {
 				/* make mbuf and queue */
@@ -716,8 +716,8 @@ ure_bulk_read_callback(struct usb_xfer *xfer, usb_error_t error)
 				uether_rxmbuf(ue, m, 0);
 			}
 
-			off += roundup(len, URE_RXPKT_ALIGN);
-			actlen -= roundup(len, URE_RXPKT_ALIGN);
+			off += roundup2(len, URE_RXPKT_ALIGN);
+			actlen -= roundup2(len, URE_RXPKT_ALIGN);
 		}
 		DEVPRINTFN(13, sc->sc_ue.ue_dev, "rcb end\n");
 
@@ -763,7 +763,7 @@ ure_bulk_write_callback(struct usb_xfer *xfer, usb_error_t error)
 		/* FALLTHROUGH */
 	case USB_ST_SETUP:
 tr_setup:
-		if ((sc->sc_flags & URE_FLAG_LINK) == 0) {
+		if (__predict_false((sc->sc_flags & URE_FLAG_LINK) == 0)) {
 			/* don't send anything if there is no link! */
 			break;
 		}
@@ -783,7 +783,7 @@ tr_setup:
 			 * packet
 			 */
 			len = m->m_pkthdr.len;
-			if ((len & URE_TXPKT_LEN_MASK) != len) {
+			if (__predict_false((len & URE_TXPKT_LEN_MASK) != len)) {
 				device_printf(sc->sc_ue.ue_dev,
 				    "pkt len too large: %#x", len);
 pkterror:
@@ -793,7 +793,7 @@ pkterror:
 			}
 
 			if (sizeof(txpkt) +
-			    roundup(len, URE_TXPKT_ALIGN) > rem) {
+			    roundup2(len, URE_TXPKT_ALIGN) > rem) {
 				/* out of space */
 				if_sendq_prepend(ifp, m);
 				m = NULL;
@@ -808,7 +808,7 @@ pkterror:
 				    bswap16(m->m_pkthdr.ether_vtag &
 				    URE_TXPKT_VLAN_MASK) | URE_TXPKT_VLAN);
 			}
-			if (ure_txcsum(m, caps, &regtmp)) {
+			if (__predict_false(ure_txcsum(m, caps, &regtmp))) {
 				device_printf(sc->sc_ue.ue_dev,
 				    "pkt l4 off too large");
 				goto pkterror;
@@ -827,8 +827,8 @@ pkterror:
 
 			usbd_m_copy_in(pc, pos, m, 0, len);
 
-			pos += roundup(len, URE_TXPKT_ALIGN);
-			rem -= roundup(len, URE_TXPKT_ALIGN);
+			pos += roundup2(len, URE_TXPKT_ALIGN);
+			rem -= roundup2(len, URE_TXPKT_ALIGN);
 
 			if_inc_counter(ifp, IFCOUNTER_OPACKETS, 1);
 
@@ -1075,25 +1075,25 @@ ure_init(struct usb_ether *ue)
 	if (sc->sc_flags & URE_FLAG_8153) {
 		switch (usbd_get_speed(sc->sc_ue.ue_udev)) {
 		case USB_SPEED_SUPER:
-			reg = URE_COALESCE_SUPER / 8;
+			reg = URE_COALESCE_SUPER >> 3;
 			break;
 		case USB_SPEED_HIGH:
-			reg = URE_COALESCE_HIGH / 8;
+			reg = URE_COALESCE_HIGH >> 3;
 			break;
 		default:
-			reg = URE_COALESCE_SLOW / 8;
+			reg = URE_COALESCE_SLOW >> 3;
 			break;
 		}
 		ure_write_2(sc, URE_USB_RX_EARLY_AGG, URE_MCU_TYPE_USB, reg);
 		reg = URE_8153_RX_BUFSZ - (URE_FRAMELEN(if_getmtu(ifp)) +
 		    sizeof(struct ure_rxpkt) + URE_RXPKT_ALIGN);
-		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg / 4);
+		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg >> 2);
 	} else if (sc->sc_flags & URE_FLAG_8153B) {
 		ure_write_2(sc, URE_USB_RX_EARLY_AGG, URE_MCU_TYPE_USB, 158);
 		ure_write_2(sc, URE_USB_RX_EXTRA_AGG_TMR, URE_MCU_TYPE_USB, 1875);
 		reg = URE_8153_RX_BUFSZ - (URE_FRAMELEN(if_getmtu(ifp)) +
 		    sizeof(struct ure_rxpkt) + URE_RXPKT_ALIGN);
-		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg / 8);
+		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg >> 3);
 		ure_write_1(sc, URE_USB_UPT_RXDMA_OWN, URE_MCU_TYPE_USB,
 		    URE_OWN_UPDATE | URE_OWN_CLEAR);
 	} else if (sc->sc_flags & (URE_FLAG_8156 | URE_FLAG_8156B)) {
@@ -1101,7 +1101,7 @@ ure_init(struct usb_ether *ue)
 		ure_write_2(sc, URE_USB_RX_EXTRA_AGG_TMR, URE_MCU_TYPE_USB, 1875);
 		reg = URE_8156_RX_BUFSZ - (URE_FRAMELEN(if_getmtu(ifp)) +
 		    sizeof(struct ure_rxpkt) + URE_RXPKT_ALIGN);
-		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg / 8);
+		ure_write_2(sc, URE_USB_RX_EARLY_SIZE, URE_MCU_TYPE_USB, reg >> 3);
 		ure_write_1(sc, URE_USB_UPT_RXDMA_OWN, URE_MCU_TYPE_USB,
 		    URE_OWN_UPDATE | URE_OWN_CLEAR);
 	}
@@ -1811,7 +1811,7 @@ ure_rtl8153b_init(struct ure_softc *sc)
 		URE_SETBIT_2(sc, 0xe854, URE_MCU_TYPE_PLA, 0x0001);
 
 		/* enable fc timer and set timer to 600 ms. */
-		ure_write_2(sc, URE_USB_FC_TIMER, URE_MCU_TYPE_USB, URE_CTRL_TIMER_EN | (600 / 8));
+		ure_write_2(sc, URE_USB_FC_TIMER, URE_MCU_TYPE_USB, URE_CTRL_TIMER_EN | (600 >> 3));
 
 		if (!(ure_read_1(sc, 0xdc6b, URE_MCU_TYPE_PLA) & 0x80)) {
 			val = ure_read_2(sc, URE_USB_FW_CTRL, URE_MCU_TYPE_USB);

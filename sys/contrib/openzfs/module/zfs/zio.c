@@ -230,7 +230,7 @@ zio_init(void)
 		size_t p2 = size;
 		while (!ISP2(p2))
 			p2 &= p2 - 1;
-		if (!IS_P2ALIGNED(size, p2 / 2))
+		if (!IS_P2ALIGNED(size, p2 >> 1))
 			continue;
 
 #ifndef _KERNEL

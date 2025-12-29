@@ -759,7 +759,7 @@ brt_vdev_addref(spa_t *spa, brt_vdev_t *brtvd, const brt_entry_t *bre,
 	brtvd->bv_totalcount++;
 	brt_vdev_entcount_inc(brtvd, idx);
 	brtvd->bv_entcount_dirty = TRUE;
-	idx = idx / BRT_BLOCKSIZE / 8;
+	idx = idx >> 18;	/* / BRT_BLOCKSIZE / 8 where BRT_BLOCKSIZE=32K */
 	BT_SET(brtvd->bv_bitmap, idx);
 }
 
@@ -787,7 +787,7 @@ brt_vdev_decref(spa_t *spa, brt_vdev_t *brtvd, const brt_entry_t *bre,
 	brtvd->bv_totalcount--;
 	brt_vdev_entcount_dec(brtvd, idx);
 	brtvd->bv_entcount_dirty = TRUE;
-	idx = idx / BRT_BLOCKSIZE / 8;
+	idx = idx >> 18;	/* / BRT_BLOCKSIZE / 8 where BRT_BLOCKSIZE=32K */
 	BT_SET(brtvd->bv_bitmap, idx);
 }
 

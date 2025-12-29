@@ -626,7 +626,7 @@ out:
 		    arc_c_max >> (4 + dbs)) < 0))
 			zs->zs_pf_dist *= 2;
 		else if (zs->zs_more)
-			zs->zs_pf_dist += zs->zs_pf_dist / 8;
+			zs->zs_pf_dist += zs->zs_pf_dist >> 3;
 		zs->zs_more = B_FALSE;
 		if (zs->zs_pf_dist > zfetch_max_distance)
 			zs->zs_pf_dist = zfetch_max_distance;

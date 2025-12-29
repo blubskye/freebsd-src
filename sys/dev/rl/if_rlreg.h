@@ -781,6 +781,18 @@ struct rl_stats {
 #define	RL_RING_ALIGN		256
 #define	RL_DUMP_ALIGN		64
 #define	RL_IFQ_MAXLEN		512
+
+/* Prefetch for cache optimization on x86/x86-64 */
+#if defined(__i386__) || defined(__amd64__)
+static __inline void
+rl_prefetch(void *x)
+{
+	__asm volatile("prefetcht0 %0" :: "m" (*(unsigned long *)x));
+}
+#else
+#define	rl_prefetch(x)
+#endif
+
 #define	RL_TX_DESC_NXT(sc,x)	((x + 1) & ((sc)->rl_ldata.rl_tx_desc_cnt - 1))
 #define	RL_TX_DESC_PRV(sc,x)	((x - 1) & ((sc)->rl_ldata.rl_tx_desc_cnt - 1))
 #define	RL_RX_DESC_NXT(sc,x)	((x + 1) & ((sc)->rl_ldata.rl_rx_desc_cnt - 1))

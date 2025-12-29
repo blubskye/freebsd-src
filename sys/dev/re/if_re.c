@@ -2190,11 +2190,13 @@ re_rxeof(struct rl_softc *sc, int *rx_npktsp)
 
 	for (i = sc->rl_ldata.rl_rx_prodidx; maxpkt > 0;
 	    i = RL_RX_DESC_NXT(sc, i)) {
-		if ((if_getdrvflags(ifp) & IFF_DRV_RUNNING) == 0)
+		if (__predict_false((if_getdrvflags(ifp) & IFF_DRV_RUNNING) == 0))
 			break;
 		cur_rx = &sc->rl_ldata.rl_rx_list[i];
+		/* Prefetch the next descriptor for better cache utilization */
+		rl_prefetch(&sc->rl_ldata.rl_rx_list[RL_RX_DESC_NXT(sc, i)]);
 		rxstat = le32toh(cur_rx->rl_cmdstat);
-		if ((rxstat & RL_RDESC_STAT_OWN) != 0)
+		if (__predict_false((rxstat & RL_RDESC_STAT_OWN) != 0))
 			break;
 		total_len = rxstat & sc->rl_rxlenmask;
 		rxvlan = le32toh(cur_rx->rl_vlanctl);
@@ -2259,7 +2261,7 @@ re_rxeof(struct rl_softc *sc, int *rx_npktsp)
 		 * if total_len > 2^13-1, both _RXERRSUM and _GIANT will be
 		 * set, but if CRC is clear, it will still be a valid frame.
 		 */
-		if ((rxstat & RL_RDESC_STAT_RXERRSUM) != 0) {
+		if (__predict_false((rxstat & RL_RDESC_STAT_RXERRSUM) != 0)) {
 			rxerr = 1;
 			if ((sc->rl_flags & RL_FLAG_JUMBOV2) == 0 &&
 			    total_len > 8191 &&
@@ -2288,7 +2290,7 @@ re_rxeof(struct rl_softc *sc, int *rx_npktsp)
 			rxerr = re_jumbo_newbuf(sc, i);
 		else
 			rxerr = re_newbuf(sc, i);
-		if (rxerr != 0) {
+		if (__predict_false(rxerr != 0)) {
 			if_inc_counter(ifp, IFCOUNTER_IQDROPS, 1);
 			if (sc->rl_head != NULL) {
 				m_freem(sc->rl_head);
@@ -2429,8 +2431,10 @@ re_txeof(struct rl_softc *sc)
 
 	for (; cons != sc->rl_ldata.rl_tx_prodidx;
 	    cons = RL_TX_DESC_NXT(sc, cons)) {
+		/* Prefetch the next TX descriptor */
+		rl_prefetch(&sc->rl_ldata.rl_tx_list[RL_TX_DESC_NXT(sc, cons)]);
 		txstat = le32toh(sc->rl_ldata.rl_tx_list[cons].rl_cmdstat);
-		if (txstat & RL_TDESC_STAT_OWN)
+		if (__predict_false(txstat & RL_TDESC_STAT_OWN))
 			break;
 		/*
 		 * We only stash mbufs in the last descriptor
@@ -2448,10 +2452,10 @@ re_txeof(struct rl_softc *sc)
 			    ("%s: freeing NULL mbufs!", __func__));
 			m_freem(txd->tx_m);
 			txd->tx_m = NULL;
-			if (txstat & (RL_TDESC_STAT_EXCESSCOL|
-			    RL_TDESC_STAT_COLCNT))
+			if (__predict_false(txstat & (RL_TDESC_STAT_EXCESSCOL|
+			    RL_TDESC_STAT_COLCNT)))
 				if_inc_counter(ifp, IFCOUNTER_COLLISIONS, 1);
-			if (txstat & RL_TDESC_STAT_TXERRSUM)
+			if (__predict_false(txstat & RL_TDESC_STAT_TXERRSUM))
 				if_inc_counter(ifp, IFCOUNTER_OERRORS, 1);
 			else
 				if_inc_counter(ifp, IFCOUNTER_OPACKETS, 1);
@@ -2565,7 +2569,7 @@ re_intr(void *arg)
 	sc = arg;
 
 	status = CSR_READ_2(sc, RL_ISR);
-	if (status == 0xFFFF || (status & RL_INTRS_CPLUS) == 0)
+	if (__predict_false(status == 0xFFFF || (status & RL_INTRS_CPLUS) == 0))
                 return (FILTER_STRAY);
 	CSR_WRITE_2(sc, RL_IMR, 0);
 
@@ -2626,7 +2630,7 @@ re_int_task(void *arg, int npending)
 	    RL_ISR_TX_ERR|RL_ISR_TX_DESC_UNAVAIL))
 		re_txeof(sc);
 
-	if (status & RL_ISR_SYSTEM_ERR) {
+	if (__predict_false(status & RL_ISR_SYSTEM_ERR)) {
 		if_setdrvflagbits(ifp, 0, IFF_DRV_RUNNING);
 		re_init_locked(sc);
 	}
@@ -2712,7 +2716,7 @@ re_intr_msi(void *xsc)
 	if (status & (RL_ISR_TX_OK | RL_ISR_TX_ERR | RL_ISR_TX_DESC_UNAVAIL))
 		re_txeof(sc);
 
-	if (status & RL_ISR_SYSTEM_ERR) {
+	if (__predict_false(status & RL_ISR_SYSTEM_ERR)) {
 		if_setdrvflagbits(ifp, 0, IFF_DRV_RUNNING);
 		re_init_locked(sc);
 	}

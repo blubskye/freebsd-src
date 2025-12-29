@@ -955,7 +955,7 @@ dbuf_init(void)
 	 * By default, the table will take up
 	 * totalmem * sizeof(void*) / 8K (1MB per GB with 8-byte pointers).
 	 */
-	while (hsize * zfs_arc_average_blocksize < arc_all_memory() / 8)
+	while (hsize * zfs_arc_average_blocksize < (arc_all_memory() >> 3))
 		hsize <<= 1;
 
 	h->hash_table = NULL;

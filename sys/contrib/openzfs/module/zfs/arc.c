@@ -3893,7 +3893,7 @@ static void
 arc_set_need_free(void)
 {
 	ASSERT(MUTEX_HELD(&arc_evict_lock));
-	int64_t remaining = arc_free_memory() - arc_sys_free / 2;
+	int64_t remaining = arc_free_memory() - (arc_sys_free >> 1);
 	arc_evict_waiter_t *aw = list_tail(&arc_evict_waiters);
 	if (aw == NULL) {
 		arc_need_free = MAX(-remaining, 0);
@@ -4008,7 +4008,7 @@ arc_evict_state_impl(multilist_t *ml, int idx, arc_buf_hdr_t *marker,
 	mutex_enter(&arc_evict_lock);
 	arc_evict_count += real_evicted;
 
-	if (arc_free_memory() > arc_sys_free / 2) {
+	if (arc_free_memory() > (arc_sys_free >> 1)) {
 		arc_evict_waiter_t *aw;
 		while ((aw = list_head(&arc_evict_waiters)) != NULL &&
 		    aw->aew_count <= arc_evict_count) {
@@ -4413,8 +4413,8 @@ arc_evict_adj(uint64_t frac, uint64_t total, uint64_t up, uint64_t down,
 	 * than 1/5 of total.  But to limit maximum adjustment speed restrict
 	 * it some more.
 	 */
-	if (up + down >= total / 16) {
-		uint64_t scale = (up + down) / (total / 32);
+	if (up + down >= (total >> 4)) {
+		uint64_t scale = (up + down) / (total >> 5);
 		up /= scale;
 		down /= scale;
 	}
@@ -4564,22 +4564,22 @@ arc_evict(void)
 	 * never result in real cache hits if several states are competing.
 	 * So choose some arbitraty point of 1/2 of other state sizes.
 	 */
-	gsrd = (mrum + mfud + mfum) / 2;
+	gsrd = (mrum + mfud + mfum) >> 1;
 	e = zfs_refcount_count(&arc_mru_ghost->arcs_size[ARC_BUFC_DATA]) -
 	    gsrd;
 	(void) arc_evict_impl(arc_mru_ghost, ARC_BUFC_DATA, e);
 
-	gsrm = (mrud + mfud + mfum) / 2;
+	gsrm = (mrud + mfud + mfum) >> 1;
 	e = zfs_refcount_count(&arc_mru_ghost->arcs_size[ARC_BUFC_METADATA]) -
 	    gsrm;
 	(void) arc_evict_impl(arc_mru_ghost, ARC_BUFC_METADATA, e);
 
-	gsfd = (mrud + mrum + mfum) / 2;
+	gsfd = (mrud + mrum + mfum) >> 1;
 	e = zfs_refcount_count(&arc_mfu_ghost->arcs_size[ARC_BUFC_DATA]) -
 	    gsfd;
 	(void) arc_evict_impl(arc_mfu_ghost, ARC_BUFC_DATA, e);
 
-	gsfm = (mrud + mrum + mfud) / 2;
+	gsfm = (mrud + mrum + mfud) >> 1;
 	e = zfs_refcount_count(&arc_mfu_ghost->arcs_size[ARC_BUFC_METADATA]) -
 	    gsfm;
 	(void) arc_evict_impl(arc_mfu_ghost, ARC_BUFC_METADATA, e);
@@ -7978,7 +7978,7 @@ void
 arc_set_limits(uint64_t allmem)
 {
 	/* Set min cache to 1/32 of all memory, or 32MB, whichever is more. */
-	arc_c_min = MAX(allmem / 32, 2ULL << SPA_MAXBLOCKSHIFT);
+	arc_c_min = MAX(allmem >> 5, 2ULL << SPA_MAXBLOCKSHIFT);
 
 	/* How to set default max varies by platform. */
 	arc_c_max = arc_default_max(arc_c_min, allmem);
@@ -8013,7 +8013,7 @@ arc_init(void)
 	    zfs_arc_max < allmem) {
 		arc_c_max = zfs_arc_max;
 		if (arc_c_min >= arc_c_max) {
-			arc_c_min = MAX(zfs_arc_max / 2,
+			arc_c_min = MAX(zfs_arc_max >> 1,
 			    2ULL << SPA_MAXBLOCKSHIFT);
 		}
 	}
@@ -8024,7 +8024,7 @@ arc_init(void)
 	 * small, because it can cause transactions to be larger than
 	 * arc_c, causing arc_tempreserve_space() to fail.
 	 */
-	arc_c_min = MAX(arc_c_max / 2, 2ULL << SPA_MAXBLOCKSHIFT);
+	arc_c_min = MAX(arc_c_max >> 1, 2ULL << SPA_MAXBLOCKSHIFT);
 #endif
 
 	arc_c = arc_c_min;
@@ -8032,9 +8032,9 @@ arc_init(void)
 	 * 32-bit fixed point fractions of metadata from total ARC size,
 	 * MRU data from all data and MRU metadata from all metadata.
 	 */
-	arc_meta = (1ULL << 32) / 4;	/* Metadata is 25% of arc_c. */
-	arc_pd = (1ULL << 32) / 2;	/* Data MRU is 50% of data. */
-	arc_pm = (1ULL << 32) / 2;	/* Metadata MRU is 50% of metadata. */
+	arc_meta = (1ULL << 32) >> 2;	/* Metadata is 25% of arc_c. */
+	arc_pd = (1ULL << 32) >> 1;	/* Data MRU is 50% of data. */
+	arc_pm = (1ULL << 32) >> 1;	/* Metadata MRU is 50% of metadata. */
 
 	percent = MIN(zfs_arc_dnode_limit_percent, 100);
 	arc_dnode_limit = arc_c_max * percent / 100;
@@ -8502,7 +8502,7 @@ l2arc_write_size(l2arc_dev_t *dev)
 	 * device. This is important in l2arc_evict(), otherwise infinite
 	 * iteration can occur.
 	 */
-	size = MIN(size, (dev->l2ad_end - dev->l2ad_start) / 4);
+	size = MIN(size, (dev->l2ad_end - dev->l2ad_start) >> 2);
 
 	size = P2ROUNDUP(size, 1ULL << dev->l2ad_vdev->vdev_ashift);
 
@@ -8521,7 +8521,7 @@ l2arc_write_interval(clock_t began, uint64_t wanted, uint64_t wrote)
 	 * how much we previously wrote - if it was more than half of
 	 * what we wanted, schedule the next write much sooner.
 	 */
-	if (l2arc_feed_again && wrote > (wanted / 2))
+	if (l2arc_feed_again && wrote > (wanted >> 1))
 		interval = (hz * l2arc_feed_min_ms) / 1000;
 	else
 		interval = hz * l2arc_feed_secs;

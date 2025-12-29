@@ -543,7 +543,7 @@ metaslab_class_balance(metaslab_class_t *mc, boolean_t onsync)
 		 * large allocations shrinking to 1/8 of metaslab_aliquot.
 		 */
 		mc->mc_alloc_io_size = (3 * mc->mc_alloc_io_size +
-		    metaslab_aliquot / 8) / 4;
+		    (metaslab_aliquot >> 3)) >> 2;
 		mc->mc_alloc_throttle_enabled = mc->mc_is_log ? 0 :
 		    zio_dva_throttle_enabled;
 	}
@@ -658,12 +658,12 @@ metaslab_class_rotate(metaslab_group_t *mg, int allocator, uint64_t psize,
 	 * target queue depth, i.e. can't saturate the group write performance,
 	 * always rotate after allocating the queue target bytes.
 	 */
-	uint64_t naq = atomic_add_64_nv(&mca->mca_aliquot, psize) + psize / 2;
+	uint64_t naq = atomic_add_64_nv(&mca->mca_aliquot, psize) + (psize >> 1);
 	if (naq < mg->mg_aliquot)
 		return;
 	if (naq >= mg->mg_queue_target)
 		goto rotate;
-	if (zfs_refcount_count(&mga->mga_queue_depth) + psize + psize / 2 >=
+	if (zfs_refcount_count(&mga->mga_queue_depth) + psize + (psize >> 1) >=
 	    mg->mg_queue_target)
 		goto rotate;
 
@@ -1437,7 +1437,7 @@ metaslab_group_fragmentation(metaslab_group_t *mg)
 		fragmentation += msp->ms_fragmentation * free;
 	}
 
-	if (valid_ms < (total_ms + 1) / 2 || total_free == 0)
+	if (valid_ms < ((total_ms + 1) >> 1) || total_free == 0)
 		return (ZFS_FRAG_INVALID);
 
 	fragmentation /= total_free;
@@ -5367,7 +5367,7 @@ metaslab_alloc_dva_range(spa_t *spa, metaslab_class_t *mc, uint64_t psize,
 	if (max_psize > psize && max_psize >= metaslab_force_ganging &&
 	    metaslab_force_ganging_pct > 0 &&
 	    (random_in_range(100) < MIN(metaslab_force_ganging_pct, 100))) {
-		max_psize = MAX((psize + max_psize) / 2,
+		max_psize = MAX((psize + max_psize) >> 1,
 		    metaslab_force_ganging);
 	}
 	ASSERT3U(psize, <=, max_psize);

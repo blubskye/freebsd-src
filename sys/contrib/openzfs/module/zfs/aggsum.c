@@ -191,7 +191,7 @@ aggsum_add(aggsum_t *as, int64_t delta)
 	if (borrow >= asb->asc_borrowed)
 		borrow -= asb->asc_borrowed;
 	else
-		borrow = (borrow - (int64_t)asb->asc_borrowed) / 4;
+		borrow = (borrow - (int64_t)asb->asc_borrowed) >> 2;
 	mutex_enter(&asb->asc_lock);
 	delta += asb->asc_delta;
 	asb->asc_delta = 0;

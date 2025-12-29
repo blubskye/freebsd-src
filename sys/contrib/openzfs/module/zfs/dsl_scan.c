@@ -500,7 +500,7 @@ dsl_scan_init(dsl_pool_t *dp, uint64_t txg)
 	 * Limits for the issuing phase are done per top-level vdev and
 	 * are handled separately.
 	 */
-	scn->scn_maxinflight_bytes = MIN(arc_c_max / 4, MAX(1ULL << 20,
+	scn->scn_maxinflight_bytes = MIN(arc_c_max >> 2, MAX(1ULL << 20,
 	    zfs_scan_vdev_limit * dsl_scan_count_data_disks(spa)));
 
 	avl_create(&scn->scn_queue, scan_ds_queue_compare, sizeof (scan_ds_t),
@@ -3601,7 +3601,7 @@ dsl_scan_async_block_should_pause(dsl_scan_t *scn)
 	}
 
 	elapsed_nanosecs = getlrtime() - scn->scn_sync_start_time;
-	return (elapsed_nanosecs / (NANOSEC / 2) > zfs_txg_timeout ||
+	return (elapsed_nanosecs / (NANOSEC >> 1) > zfs_txg_timeout ||
 	    (NSEC2MSEC(elapsed_nanosecs) > scn->scn_async_block_min_time_ms &&
 	    txg_sync_waiting(scn->scn_dp)) ||
 	    spa_shutting_down(scn->scn_dp->dp_spa));
@@ -4556,7 +4556,7 @@ dsl_scan_sync(dsl_pool_t *dp, dmu_tx_t *tx)
 		 * Limits for the issuing phase are done per top-level vdev and
 		 * are handled separately.
 		 */
-		scn->scn_maxinflight_bytes = MIN(arc_c_max / 4, MAX(1ULL << 20,
+		scn->scn_maxinflight_bytes = MIN(arc_c_max >> 2, MAX(1ULL << 20,
 		    zfs_scan_vdev_limit * dsl_scan_count_data_disks(spa)));
 
 		if (scnp->scn_ddt_bookmark.ddb_class <=
