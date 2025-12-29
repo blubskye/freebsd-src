@@ -51,6 +51,11 @@
 #include "rp1_ethreg.h"
 #include "miibus_if.h"
 
+/* FreeBSD doesn't define BUS_SPACE_MAXADDR_40BIT, define it for GENET DMA */
+#ifndef BUS_SPACE_MAXADDR_40BIT
+#define	BUS_SPACE_MAXADDR_40BIT	0xFFFFFFFFFFULL
+#endif
+
 #define	__BIT(_x)	(1 << (_x))
 
 #define	RD4(sc, reg)		\

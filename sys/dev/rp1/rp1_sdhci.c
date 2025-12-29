@@ -21,6 +21,8 @@
 #include <sys/mutex.h>
 #include <sys/resource.h>
 #include <sys/rman.h>
+#include <sys/sysctl.h>
+#include <sys/taskqueue.h>
 
 #include <machine/bus.h>
 #include <machine/resource.h>
@@ -45,9 +47,9 @@
  * RP1-specific quirks (from Linux sdhci-of-dwcmshc.c)
  * The RP1 dwcmshc is simpler than Rockchip - no DLL configuration needed
  */
-#define	RP1_SDHCI_QUIRKS	(SDHCI_QUIRK_BROKEN_CARD_DETECTION | \
-				 SDHCI_QUIRK_MISSING_CAPS)
-#define	RP1_SDHCI_QUIRKS2	(SDHCI_QUIRK_PRESET_VALUE_BROKEN)
+#define	RP1_SDHCI_QUIRKS	(SDHCI_QUIRK_POLL_CARD_PRESENT | \
+				 SDHCI_QUIRK_MISSING_CAPS | \
+				 SDHCI_QUIRK_PRESET_VALUE_BROKEN)
 
 struct rp1_sdhci_softc {
 	device_t		dev;

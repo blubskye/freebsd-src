@@ -161,7 +161,7 @@ rp1_attach(device_t dev)
 	}
 
 	/* Attach children */
-	bus_generic_attach(dev);
+	bus_attach_children(dev);
 
 	sc->attached = true;
 	return (0);
@@ -328,7 +328,7 @@ rp1_read_ivar(device_t dev, device_t child, int which, uintptr_t *result)
 }
 
 static struct resource *
-rp1_alloc_resource(device_t dev, device_t child, int type, int *rid,
+rp1_alloc_resource(device_t dev, device_t child, int type, int rid,
     rman_res_t start, rman_res_t end, rman_res_t count, u_int flags)
 {
 	struct rp1_softc *sc;

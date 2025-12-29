@@ -97,6 +97,48 @@
 /* Forward declarations */
 struct bwfm_softc;
 
+/* mbuf_list compatibility for FreeBSD (must be before bwfm_proto_ops) */
+struct mbuf_list {
+	struct mbuf	*ml_head;
+	struct mbuf	*ml_tail;
+	int		ml_len;
+};
+
+static inline void
+ml_init(struct mbuf_list *ml)
+{
+	ml->ml_head = ml->ml_tail = NULL;
+	ml->ml_len = 0;
+}
+
+static inline void
+ml_enqueue(struct mbuf_list *ml, struct mbuf *m)
+{
+	if (ml->ml_tail == NULL)
+		ml->ml_head = m;
+	else
+		ml->ml_tail->m_nextpkt = m;
+	ml->ml_tail = m;
+	m->m_nextpkt = NULL;
+	ml->ml_len++;
+}
+
+static inline struct mbuf *
+ml_dequeue(struct mbuf_list *ml)
+{
+	struct mbuf *m;
+
+	m = ml->ml_head;
+	if (m != NULL) {
+		ml->ml_head = m->m_nextpkt;
+		if (ml->ml_head == NULL)
+			ml->ml_tail = NULL;
+		m->m_nextpkt = NULL;
+		ml->ml_len--;
+	}
+	return m;
+}
+
 /* Firmware selector structure */
 struct bwfm_firmware_selector {
 	uint32_t	fwsel_chip;
@@ -167,7 +209,7 @@ struct bwfm_proto_ops {
 		    void *, size_t *);
 	int	(*proto_set_dcmd)(struct bwfm_softc *, int, int,
 		    void *, size_t);
-	int	(*proto_rx)(struct bwfm_softc *, struct mbuf *,
+	void	(*proto_rx)(struct bwfm_softc *, struct mbuf *,
 		    struct mbuf_list *);
 	void	(*proto_rxctl)(struct bwfm_softc *, char *, size_t);
 };
@@ -227,7 +269,7 @@ struct bwfm_softc {
 
 	/* Bus operations */
 	struct bwfm_bus_ops	*sc_bus_ops;
-	struct bwfm_proto_ops	*sc_proto_ops;
+	const struct bwfm_proto_ops *sc_proto_ops;
 
 	/* Chip/firmware info */
 	struct bwfm_chip	 sc_chip;
@@ -303,46 +345,7 @@ void	bwfm_init_channels(struct ieee80211com *);
 
 extern const struct bwfm_proto_ops bwfm_proto_bcdc_ops;
 
-/* mbuf_list compatibility for FreeBSD */
-struct mbuf_list {
-	struct mbuf	*ml_head;
-	struct mbuf	*ml_tail;
-	int		ml_len;
-};
-
-static inline void
-ml_init(struct mbuf_list *ml)
-{
-	ml->ml_head = ml->ml_tail = NULL;
-	ml->ml_len = 0;
-}
-
-static inline void
-ml_enqueue(struct mbuf_list *ml, struct mbuf *m)
-{
-	if (ml->ml_tail == NULL)
-		ml->ml_head = m;
-	else
-		ml->ml_tail->m_nextpkt = m;
-	ml->ml_tail = m;
-	m->m_nextpkt = NULL;
-	ml->ml_len++;
-}
-
-static inline struct mbuf *
-ml_dequeue(struct mbuf_list *ml)
-{
-	struct mbuf *m;
-
-	m = ml->ml_head;
-	if (m != NULL) {
-		ml->ml_head = m->m_nextpkt;
-		if (ml->ml_head == NULL)
-			ml->ml_tail = NULL;
-		m->m_nextpkt = NULL;
-		ml->ml_len--;
-	}
-	return m;
-}
+/* Driver interface state flags (used internally) */
+#define BWFM_RUNNING		0x0001
 
 #endif /* _BWFMVAR_H_ */

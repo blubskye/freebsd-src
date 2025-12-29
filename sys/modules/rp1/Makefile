@@ -8,6 +8,6 @@ SRCS+=	device_if.h bus_if.h pci_if.h miibus_if.h
 SRCS+=	mmcbr_if.h sdhci_if.h
 
 # Include option headers
-SRCS+=	opt_mmccam.h
+SRCS+=	opt_mmccam.h opt_platform.h
 
 .include <bsd.kmod.mk>

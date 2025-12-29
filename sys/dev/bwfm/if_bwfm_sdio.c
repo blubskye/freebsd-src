@@ -46,6 +46,7 @@
 
 #include <net/if.h>
 #include <net/if_var.h>
+#include <net/if_media.h>
 #include <net/ethernet.h>
 
 #include <net80211/ieee80211_var.h>
@@ -297,6 +298,10 @@ bwfm_sdio_write_4(struct bwfm_sdio_softc *sc, uint32_t addr, uint32_t val)
 		    addr, val, error);
 }
 
+/* Backplane address masks */
+#define BWFM_SBSDIO_SB_OFT_ADDR_MASK	0x7fff
+#define BWFM_SBSDIO_SB_ACCESS_2_4B_FLAG	0x8000
+
 /*
  * Backplane window management
  */
@@ -318,8 +323,6 @@ bwfm_sdio_backplane_window(struct bwfm_sdio_softc *sc, uint32_t addr)
 	sc->sc_sbwad = bar0;
 }
 
-#define BWFM_SBSDIO_SB_OFT_ADDR_MASK	0x7fff
-
 static uint32_t
 bwfm_sdio_buscore_read(struct bwfm_softc *bwfm, uint32_t addr)
 {
@@ -335,8 +338,6 @@ bwfm_sdio_buscore_read(struct bwfm_softc *bwfm, uint32_t addr)
 
 	return val;
 }
-
-#define BWFM_SBSDIO_SB_ACCESS_2_4B_FLAG	0x8000
 
 static void
 bwfm_sdio_buscore_write(struct bwfm_softc *bwfm, uint32_t addr, uint32_t val)
@@ -426,8 +427,11 @@ bwfm_sdio_load_microcode(struct bwfm_sdio_softc *sc,
 {
 	struct bwfm_softc *bwfm = &sc->sc_sc;
 	struct bwfm_core *core;
-	uint32_t rambase, ramsize;
-	int error;
+
+	(void)code;
+	(void)codelen;
+	(void)nvram;
+	(void)nvramlen;
 
 	/* Get ARM core */
 	core = bwfm_chip_get_core(bwfm, BWFM_AGENT_CORE_ARM_CM3);
@@ -438,11 +442,10 @@ bwfm_sdio_load_microcode(struct bwfm_sdio_softc *sc,
 		return ENODEV;
 	}
 
-	rambase = bwfm->sc_chip.ch_rambase;
-	ramsize = bwfm->sc_chip.ch_ramsize;
-
 	/* TODO: Write firmware to RAM via SDIO */
 	/* This requires multi-byte SDIO writes which need more infrastructure */
+	/* rambase = bwfm->sc_chip.ch_rambase; */
+	/* ramsize = bwfm->sc_chip.ch_ramsize; */
 
 	device_printf(sc->sc_dev,
 	    "firmware loading not yet implemented\n");
@@ -542,9 +545,7 @@ bwfm_sdio_txcheck(struct bwfm_softc *bwfm)
 static int
 bwfm_sdio_txdata(struct bwfm_softc *bwfm, struct mbuf *m)
 {
-	struct bwfm_sdio_softc *sc = (struct bwfm_sdio_softc *)bwfm;
-	struct bwfm_sdio_hdr *hdr;
-	int error;
+	(void)bwfm;
 
 	/* TODO: Implement data transmission */
 	m_freem(m);
@@ -554,7 +555,9 @@ bwfm_sdio_txdata(struct bwfm_softc *bwfm, struct mbuf *m)
 static int
 bwfm_sdio_txctl(struct bwfm_softc *bwfm, void *buf, size_t len)
 {
-	struct bwfm_sdio_softc *sc = (struct bwfm_sdio_softc *)bwfm;
+	(void)bwfm;
+	(void)buf;
+	(void)len;
 
 	/* TODO: Implement control transmission */
 	return ENOTSUP;

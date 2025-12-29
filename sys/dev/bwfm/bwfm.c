@@ -181,8 +181,8 @@ bwfm_attach(struct bwfm_softc *sc)
 		    IEEE80211_HTCAP_SMPS_OFF |
 		    IEEE80211_HTCAP_SHORTGI20 |
 		    IEEE80211_HTCAP_CHWIDTH40 |
-		    IEEE80211_HTCAP_SHORTGI40;
-		ic->ic_caps |= IEEE80211_C_HTCAP;
+		    IEEE80211_HTCAP_SHORTGI40 |
+		    IEEE80211_HTC_HT;	/* Enable HT operation */
 	}
 
 	/* Copy MAC address */
@@ -254,42 +254,53 @@ bwfm_detach(struct bwfm_softc *sc)
 void
 bwfm_init_channels(struct ieee80211com *ic)
 {
-	uint8_t bands[IEEE80211_MODE_MAX];
-	int i;
+	uint8_t bands[IEEE80211_MODE_BYTES];
+	int cbw_flags = 0;
 
-	memset(bands, 0, sizeof(bands));
+	/* Check for HT40 support */
+	if (ic->ic_htcaps & IEEE80211_HTCAP_CHWIDTH40)
+		cbw_flags |= NET80211_CBW_FLAG_HT40;
 
 	/* Add 2.4GHz channels */
-	bands[IEEE80211_MODE_11B] = 1;
-	bands[IEEE80211_MODE_11G] = 1;
-	for (i = 1; i <= 14; i++) {
-		int freq = ieee80211_ieee2mhz(i, IEEE80211_CHAN_2GHZ);
-		ieee80211_add_channel(ic, i, freq, 0, 0, bands);
-	}
+	memset(bands, 0, sizeof(bands));
+	setbit(bands, IEEE80211_MODE_11B);
+	setbit(bands, IEEE80211_MODE_11G);
+	if (ic->ic_htcaps & IEEE80211_HTC_HT)
+		setbit(bands, IEEE80211_MODE_11NG);
+	ieee80211_add_channels_default_2ghz(ic->ic_channels, IEEE80211_CHAN_MAX,
+	    &ic->ic_nchans, bands, cbw_flags);
 
 	/* Add 5GHz channels - basic set */
 	memset(bands, 0, sizeof(bands));
-	bands[IEEE80211_MODE_11A] = 1;
+	setbit(bands, IEEE80211_MODE_11A);
+	if (ic->ic_htcaps & IEEE80211_HTC_HT)
+		setbit(bands, IEEE80211_MODE_11NA);
 
-	/* UNII-1 */
-	for (i = 36; i <= 48; i += 4) {
-		int freq = ieee80211_ieee2mhz(i, IEEE80211_CHAN_5GHZ);
-		ieee80211_add_channel(ic, i, freq, 0, 0, bands);
+	/* UNII-1 (36, 40, 44, 48) */
+	{
+		static const uint8_t unii1[] = { 36, 40, 44, 48 };
+		ieee80211_add_channel_list_5ghz(ic->ic_channels, IEEE80211_CHAN_MAX,
+		    &ic->ic_nchans, unii1, nitems(unii1), bands, cbw_flags);
 	}
-	/* UNII-2A */
-	for (i = 52; i <= 64; i += 4) {
-		int freq = ieee80211_ieee2mhz(i, IEEE80211_CHAN_5GHZ);
-		ieee80211_add_channel(ic, i, freq, 0, 0, bands);
+	/* UNII-2A (52, 56, 60, 64) */
+	{
+		static const uint8_t unii2a[] = { 52, 56, 60, 64 };
+		ieee80211_add_channel_list_5ghz(ic->ic_channels, IEEE80211_CHAN_MAX,
+		    &ic->ic_nchans, unii2a, nitems(unii2a), bands, cbw_flags);
 	}
-	/* UNII-2C */
-	for (i = 100; i <= 144; i += 4) {
-		int freq = ieee80211_ieee2mhz(i, IEEE80211_CHAN_5GHZ);
-		ieee80211_add_channel(ic, i, freq, 0, 0, bands);
+	/* UNII-2C (100-144) */
+	{
+		static const uint8_t unii2c[] = {
+		    100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144
+		};
+		ieee80211_add_channel_list_5ghz(ic->ic_channels, IEEE80211_CHAN_MAX,
+		    &ic->ic_nchans, unii2c, nitems(unii2c), bands, cbw_flags);
 	}
-	/* UNII-3 */
-	for (i = 149; i <= 165; i += 4) {
-		int freq = ieee80211_ieee2mhz(i, IEEE80211_CHAN_5GHZ);
-		ieee80211_add_channel(ic, i, freq, 0, 0, bands);
+	/* UNII-3 (149, 153, 157, 161, 165) */
+	{
+		static const uint8_t unii3[] = { 149, 153, 157, 161, 165 };
+		ieee80211_add_channel_list_5ghz(ic->ic_channels, IEEE80211_CHAN_MAX,
+		    &ic->ic_nchans, unii3, nitems(unii3), bands, cbw_flags);
 	}
 }
 
@@ -438,7 +449,7 @@ bwfm_init(struct bwfm_softc *sc)
 
 	BWFM_LOCK_ASSERT(sc);
 
-	if (sc->sc_if_flags & IFF_RUNNING)
+	if (sc->sc_if_flags & BWFM_RUNNING)
 		return;
 
 	error = bwfm_preinit(sc);
@@ -449,7 +460,7 @@ bwfm_init(struct bwfm_softc *sc)
 	}
 
 	/* Enable the device */
-	sc->sc_if_flags |= IFF_RUNNING;
+	sc->sc_if_flags |= BWFM_RUNNING;
 }
 
 /*
@@ -460,14 +471,14 @@ bwfm_stop(struct bwfm_softc *sc)
 {
 	BWFM_LOCK_ASSERT(sc);
 
-	if (!(sc->sc_if_flags & IFF_RUNNING))
+	if (!(sc->sc_if_flags & BWFM_RUNNING))
 		return;
 
 	/* Call bus-specific stop */
 	if (sc->sc_bus_ops->bs_stop != NULL)
 		sc->sc_bus_ops->bs_stop(sc);
 
-	sc->sc_if_flags &= ~IFF_RUNNING;
+	sc->sc_if_flags &= ~BWFM_RUNNING;
 }
 
 /*
@@ -481,10 +492,10 @@ bwfm_parent(struct ieee80211com *ic)
 
 	BWFM_LOCK(sc);
 	if (ic->ic_nrunning > 0) {
-		if (!(sc->sc_if_flags & IFF_RUNNING))
+		if (!(sc->sc_if_flags & BWFM_RUNNING))
 			bwfm_init(sc);
 	} else {
-		if (sc->sc_if_flags & IFF_RUNNING)
+		if (sc->sc_if_flags & BWFM_RUNNING)
 			bwfm_stop(sc);
 	}
 	BWFM_UNLOCK(sc);
@@ -503,7 +514,7 @@ bwfm_transmit(struct ieee80211com *ic, struct mbuf *m)
 	int error;
 
 	BWFM_LOCK(sc);
-	if (!(sc->sc_if_flags & IFF_RUNNING)) {
+	if (!(sc->sc_if_flags & BWFM_RUNNING)) {
 		BWFM_UNLOCK(sc);
 		m_freem(m);
 		return ENETDOWN;
@@ -556,9 +567,12 @@ bwfm_scan_start(struct ieee80211com *ic)
 static void
 bwfm_scan_end(struct ieee80211com *ic)
 {
+#ifdef BWFM_DEBUG
 	struct bwfm_softc *sc = ic->ic_softc;
-
 	DPRINTF(("%s: scan end\n", device_get_nameunit(sc->sc_dev)));
+#else
+	(void)ic;
+#endif
 }
 
 /*
@@ -674,7 +688,6 @@ bwfm_newstate_task(struct bwfm_softc *sc, void *arg)
 	struct bwfm_host_cmd_newstate *cmd = arg;
 	struct ieee80211com *ic = &sc->sc_ic;
 	struct ieee80211vap *vap = TAILQ_FIRST(&ic->ic_vaps);
-	int error;
 
 	BWFM_LOCK_ASSERT(sc);
 
@@ -811,11 +824,11 @@ bwfm_get_station(struct bwfm_softc *sc, struct ieee80211_node *ni)
 {
 	/* Query RSSI and update node */
 	int32_t rssi;
-	int error;
 
-	error = bwfm_query_cmd(sc, BWFM_C_GET_RSSI, &rssi, sizeof(rssi));
-	if (error == 0)
-		ni->ni_rssi = le32toh(rssi);
+	/* Note: FreeBSD doesn't store RSSI directly in ni_rssi like OpenBSD */
+	/* The RSSI is typically handled through ieee80211_input callbacks */
+	(void)bwfm_query_cmd(sc, BWFM_C_GET_RSSI, &rssi, sizeof(rssi));
+	(void)ni;
 }
 
 /*
@@ -1043,13 +1056,14 @@ bwfm_rx_event(struct bwfm_softc *sc, char *buf, size_t len)
 
 	e = (struct bwfm_event *)buf;
 
-	if (memcmp(BWFM_EVENT_OUI, e->oui, sizeof(e->oui)) != 0 ||
-	    be16toh(e->usr_subtype) != BWFM_EVENT_MSG_TYPE)
+	if (memcmp(BWFM_EVENT_OUI, e->hdr.oui, sizeof(e->hdr.oui)) != 0 ||
+	    be16toh(e->hdr.usr_subtype) != BWFM_EVENT_MSG_TYPE)
 		return;
 
 	event_type = be32toh(e->msg.event_type);
 	status = be32toh(e->msg.status);
 	reason = be32toh(e->msg.reason);
+	(void)reason;	/* Used only in DPRINTF */
 
 	DPRINTF(("%s: event %u status %u reason %u\n",
 	    device_get_nameunit(sc->sc_dev), event_type, status, reason));
@@ -1124,8 +1138,8 @@ bwfm_escan_result(struct bwfm_softc *sc, char *buf, size_t len)
 	struct bwfm_bss_info *bi;
 	struct ieee80211_scanparams sp;
 	struct ieee80211_frame wh;
-	uint8_t *ies;
-	size_t ies_len;
+	uint8_t ssid_ie[2 + IEEE80211_NWID_LEN];  /* TLV format: [id][len][data] */
+	uint8_t ssid_len;
 
 	if (len < sizeof(struct bwfm_event) + sizeof(struct bwfm_escan_result))
 		return;
@@ -1144,27 +1158,32 @@ bwfm_escan_result(struct bwfm_softc *sc, char *buf, size_t len)
 	/* Process each BSS */
 	bi = &res->bss_info[0];
 
-	ies = (uint8_t *)bi + le16toh(bi->ie_offset);
-	ies_len = le32toh(bi->ie_length);
-
 	/* Build a fake 802.11 beacon frame header for scan input */
 	memset(&wh, 0, sizeof(wh));
 	wh.i_fc[0] = IEEE80211_FC0_TYPE_MGT | IEEE80211_FC0_SUBTYPE_BEACON;
 	IEEE80211_ADDR_COPY(wh.i_addr2, bi->bssid);
 	IEEE80211_ADDR_COPY(wh.i_addr3, bi->bssid);
 
-	/* Parse IEs */
+	/* Build SSID IE in TLV format for FreeBSD */
+	ssid_len = bi->ssid_len > IEEE80211_NWID_LEN ? IEEE80211_NWID_LEN : bi->ssid_len;
+	ssid_ie[0] = IEEE80211_ELEMID_SSID;
+	ssid_ie[1] = ssid_len;
+	memcpy(&ssid_ie[2], bi->ssid, ssid_len);
+
+	/* Set up scanparams - FreeBSD expects TLV pointers */
 	memset(&sp, 0, sizeof(sp));
-	sp.ssid = bi->ssid;
-	sp.ssid_len = bi->ssid_len > 32 ? 32 : bi->ssid_len;
+	sp.ssid = ssid_ie;	/* Points to TLV-formatted SSID IE */
 	sp.bintval = le16toh(bi->beacon_period);
 	sp.capinfo = le16toh(bi->capability);
 	sp.chan = le16toh(bi->chanspec) & 0xff;
+	sp.bchan = sp.chan;
 
-	/* Add to scan cache */
+	/* Add to scan cache - FreeBSD needs 7 args including noise */
 	if (vap != NULL) {
 		ieee80211_add_scan(vap, ic->ic_curchan, &sp, &wh,
-		    0, (int8_t)le16toh(bi->rssi));
+		    IEEE80211_FC0_SUBTYPE_BEACON,
+		    (int8_t)le16toh(bi->rssi),
+		    (int8_t)bi->phy_noise);
 	}
 }
 
