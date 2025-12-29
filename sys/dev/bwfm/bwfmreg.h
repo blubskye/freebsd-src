@@ -321,10 +321,9 @@
 
 /* BCDC protocol definitions */
 struct bwfm_proto_bcdc_dcmd {
-	struct {
-		uint32_t cmd;
-		uint32_t len;
-		uint32_t flags;
+	uint32_t cmd;
+	uint32_t len;
+	uint32_t flags;
 #define BWFM_BCDC_DCMD_ERROR		(1 << 0)
 #define BWFM_BCDC_DCMD_GET		(0 << 1)
 #define BWFM_BCDC_DCMD_SET		(1 << 1)
@@ -332,9 +331,8 @@ struct bwfm_proto_bcdc_dcmd {
 #define BWFM_BCDC_DCMD_IF_SET(x)	(((x) & 0xf) << 12)
 #define BWFM_BCDC_DCMD_ID_GET(x)	(((x) >> 16) & 0xffff)
 #define BWFM_BCDC_DCMD_ID_SET(x)	(((x) & 0xffff) << 16)
-		uint32_t status;
-	} hdr;
-	char buf[8192];
+	uint32_t status;
+	char data[];
 };
 
 struct bwfm_proto_bcdc_hdr {
@@ -390,7 +388,10 @@ struct bwfm_ssid {
 	uint8_t ssid[BWFM_MAX_SSID_LEN];
 };
 
-struct bwfm_scan_params_v0 {
+/* Fixed size for scan params (without variable channel_list) */
+#define BWFM_SCAN_PARAMS_FIXED_SIZE	(sizeof(struct bwfm_ssid) + 6 + 2 + 4*5)
+
+struct bwfm_scan_params {
 	struct bwfm_ssid ssid;
 	uint8_t bssid[ETHER_ADDR_LEN];
 	uint8_t bss_type;
@@ -411,6 +412,9 @@ struct bwfm_scan_params_v0 {
 	uint16_t channel_list[];
 };
 
+/* Alias for compatibility */
+#define bwfm_scan_params_v0 bwfm_scan_params
+
 struct bwfm_scan_results {
 	uint32_t buflen;
 	uint32_t version;
@@ -418,7 +422,7 @@ struct bwfm_scan_results {
 	struct bwfm_bss_info bss_info[];
 };
 
-struct bwfm_escan_params_v0 {
+struct bwfm_escan_params {
 	uint32_t version;
 #define BWFM_ESCAN_REQ_VERSION		1
 	uint16_t action;
@@ -426,8 +430,11 @@ struct bwfm_escan_params_v0 {
 #define WL_ESCAN_ACTION_CONTINUE	2
 #define WL_ESCAN_ACTION_ABORT		3
 	uint16_t sync_id;
-	struct bwfm_scan_params_v0 scan_params;
+	struct bwfm_scan_params escan_params;
 };
+
+/* Alias for compatibility */
+#define bwfm_escan_params_v0 bwfm_escan_params
 
 struct bwfm_escan_results {
 	uint32_t buflen;
@@ -436,6 +443,20 @@ struct bwfm_escan_results {
 	uint16_t bss_count;
 	struct bwfm_bss_info bss_info[];
 };
+
+/* Alias for event processing */
+#define bwfm_escan_result bwfm_escan_results
+
+/* Country code structure */
+struct bwfm_country_code {
+	char country_abbrev[4];
+	int32_t rev;
+	char ccode[4];
+};
+
+/* Event OUI marker */
+#define BWFM_EVENT_OUI		"\x00\x10\x18"
+#define BWFM_EVENT_MSG_TYPE	1
 
 struct bwfm_assoc_params {
 	uint8_t bssid[ETHER_ADDR_LEN];
