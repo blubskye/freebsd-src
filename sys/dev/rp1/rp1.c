@@ -82,6 +82,8 @@ static int	rp1_create_children(struct rp1_softc *);
 /* Child device definitions */
 static const struct rp1_child_info rp1_children[] = {
 	{ "rp1eth", RP1_ETH_BASE, RP1_ETH_SIZE, RP1_INT_ETH },
+	{ "sdhci_rp1", RP1_SDIO0_BASE, RP1_SDIO0_SIZE, RP1_INT_SDIO0 },
+	{ "sdhci_rp1", RP1_SDIO1_BASE, RP1_SDIO1_SIZE, RP1_INT_SDIO1 },
 	/* Future: USB, GPIO, UART, etc. */
 	{ NULL, 0, 0, 0 }
 };

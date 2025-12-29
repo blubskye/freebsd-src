@@ -32,6 +32,11 @@
 #define	RP1_ETH_BASE		0x00100000	/* GENET Ethernet MAC */
 #define	RP1_ETH_SIZE		0x00010000
 
+#define	RP1_SDIO0_BASE		0x00180000	/* SDHCI for SD card */
+#define	RP1_SDIO0_SIZE		0x00000100
+#define	RP1_SDIO1_BASE		0x00184000	/* SDHCI for WiFi (SDIO) */
+#define	RP1_SDIO1_SIZE		0x00000100
+
 #define	RP1_USB_BASE		0x00200000	/* USB controller */
 
 /* Interrupt numbers (from rp1.dtsi) */
