@@ -4,6 +4,7 @@ DEVRTW89DIR=	${SRCTOP}/sys/contrib/dev/rtw89
 
 WITH_CONFIG_PM=	0
 WITH_DEBUGFS=	0
+WITH_USB=	1
 
 KMOD=	if_rtw89
 
@@ -27,8 +28,11 @@ SRCS+=	rtw8922a.c rtw8922a_rfk.c
 SRCS+=	rtw8922ae.c
 
 # USB parts
-#SRCS+=	rtw8851bu.c rtw8852bu.c
-#SRCS+=	usb.c
+.if defined(WITH_USB) && ${WITH_USB} > 0
+SRCS+=	usb.c
+SRCS+=	rtw8851bu.c rtw8852bu.c
+CFLAGS+=	-DCONFIG_RTW89_USB
+.endif
 
 # CONFIG_RTW89_DEBUG (always on for now)
 SRCS+=	debug.c

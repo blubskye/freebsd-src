@@ -5,6 +5,7 @@ DEVRTW88DIR=	${SRCTOP}/sys/contrib/dev/rtw88
 WITH_CONFIG_PM=	0
 WITH_DEBUGFS=	1
 WITH_LEDS=	0
+WITH_USB=	1
 
 KMOD=	if_rtw88
 
@@ -30,11 +31,14 @@ SRCS+=	rtw8822c.c rtw8822c_table.c rtw8822ce.c		# 11ac
 SRCS+=	rtw8814a.c rtw8814a_table.c rtw8814ae.c		# 11ac
 
 # USB parts
-#SRCS+=	rtw88xxa.c					# 88xxa common
-#SRCS+=	rtw8812a.c rtw8812a_table.c rtw8812au.c
-#SRCS+=	rtw8814au.c
-#SRCS+=	rtw8821a.c rtw8821a_table.c rtw8821au.c
-#CFLAGS+=	-DCONFIG_RTW88_USB
+.if defined(WITH_USB) && ${WITH_USB} > 0
+SRCS+=	usb.c						# USB core
+SRCS+=	rtw88xxa.c					# 88xxa common
+SRCS+=	rtw8812a.c rtw8812a_table.c rtw8812au.c
+SRCS+=	rtw8814au.c
+SRCS+=	rtw8821a.c rtw8821a_table.c rtw8821au.c
+CFLAGS+=	-DCONFIG_RTW88_USB
+.endif
 
 .if defined(WITH_LEDS) && ${WITH_LEDS} > 0
 CFLAGS+=	-DCONFIG_RTW88_LEDS

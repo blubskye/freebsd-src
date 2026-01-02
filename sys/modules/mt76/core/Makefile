@@ -1,3 +1,5 @@
+.include "../Makefile.inc"
+
 KMOD=	mt76_core
 
 # Basic stuff.

@@ -1,3 +1,5 @@
+.include "../Makefile.inc"
+
 DEVDIR=	${SRCTOP}/sys/contrib/dev/mediatek/mt76/mt7921
 
 .PATH: ${DEVDIR}
@@ -11,7 +13,9 @@ SRCS=	init.c main.c mac.c mcu.c
 SRCS+=	pci.c pci_mac.c pci_mcu.c
 
 # USB stuff.
-#SRCS+=	usb.c
+.if defined(WITH_USB) && ${WITH_USB} > 0
+SRCS+=	usb.c
+.endif
 
 # SDIO stuff.
 #SRCS+=	sdio.c sdio_mac.c sdio_mcu.c

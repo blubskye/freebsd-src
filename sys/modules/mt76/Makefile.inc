@@ -7,6 +7,7 @@ COMMONDIR=	${SRCTOP}/sys/contrib/dev/mediatek/mt76
 WITH_CONFIG_PM=	0
 WITH_DEBUGFS=	0
 WITH_SOC_WED=	0
+WITH_USB=	1
 
 # Other
 SRCS+=	${LINUXKPI_GENSRCS}

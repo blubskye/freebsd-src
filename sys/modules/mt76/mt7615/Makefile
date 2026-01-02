@@ -1,8 +1,9 @@
+.include "../Makefile.inc"
+
 DEVDIR=	${SRCTOP}/sys/contrib/dev/mediatek/mt76/mt7615
 
 .PATH: ${DEVDIR}
 
-WITH_DEBUGFS=		0
 WITH_DEV_COREDUMP=	0
 
 KMOD=	if_mt7615
