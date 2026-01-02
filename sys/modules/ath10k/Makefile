@@ -4,8 +4,10 @@ DEVATH10KDIR=	${SRCTOP}/sys/contrib/dev/athk/ath10k
 
 WITH_CONFIG_FWLOG=	1
 WITH_LEDS=		0
-WITH_USB=		1
-WITH_SDIO=		1
+# USB and SDIO require additional LinuxKPI USB anchor support
+# See: usb_anchor, usb_anchor_urb, usb_kill_anchored_urbs
+WITH_USB=		0
+WITH_SDIO=		0
 
 KMOD=	if_ath10k
 
