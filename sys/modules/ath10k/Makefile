@@ -4,6 +4,8 @@ DEVATH10KDIR=	${SRCTOP}/sys/contrib/dev/athk/ath10k
 
 WITH_CONFIG_FWLOG=	1
 WITH_LEDS=		0
+WITH_USB=		1
+WITH_SDIO=		1
 
 KMOD=	if_ath10k
 
@@ -12,7 +14,20 @@ SRCS+=	htc.c htt.c htt_rx.c htt_tx.c
 SRCS+=	txrx.c wmi.c wmi-tlv.c
 SRCS+=	p2p.c swap.c
 
+# PCI support
 SRCS+=	pci.c
+
+# USB support
+.if defined(WITH_USB) && ${WITH_USB} > 0
+SRCS+=	usb.c
+CFLAGS+=	-DCONFIG_ATH10K_USB
+.endif
+
+# SDIO support
+.if defined(WITH_SDIO) && ${WITH_SDIO} > 0
+SRCS+=	sdio.c
+CFLAGS+=	-DCONFIG_ATH10K_SDIO
+.endif
 
 # Other
 SRCS+=	${LINUXKPI_GENSRCS}
