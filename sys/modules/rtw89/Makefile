@@ -4,7 +4,8 @@ DEVRTW89DIR=	${SRCTOP}/sys/contrib/dev/rtw89
 
 WITH_CONFIG_PM=	0
 WITH_DEBUGFS=	0
-WITH_USB=	1
+# USB requires LinuxKPI usb_anchor APIs not yet implemented
+WITH_USB=	0
 
 KMOD=	if_rtw89
 

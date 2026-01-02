@@ -5,7 +5,8 @@ DEVRTW88DIR=	${SRCTOP}/sys/contrib/dev/rtw88
 WITH_CONFIG_PM=	0
 WITH_DEBUGFS=	1
 WITH_LEDS=	0
-WITH_USB=	1
+# USB requires LinuxKPI usb_anchor APIs not yet implemented
+WITH_USB=	0
 
 KMOD=	if_rtw88
 

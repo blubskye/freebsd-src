@@ -1,3 +1,16 @@
+# WORK IN PROGRESS - brcmfmac requires significant LinuxKPI adaptation
+#
+# Known issues:
+# - Macro conflicts with FreeBSD ieee80211.h (WPA_OUI, RSN_OUI, etc.)
+# - Missing mdelay() in LinuxKPI
+# - msleep() signature differs (Linux: msleep(ms), FreeBSD: msleep(chan,mtx,...))
+# - const qualifier casting issues
+# - Format string mismatches (u64 printf formats)
+#
+# This driver needs proper LinuxKPI shim layer work before it will build.
+
+.error "brcmfmac is not yet ported to FreeBSD - see comments in Makefile"
+
 DEVBRCMFMACDIR=	${SRCTOP}/sys/contrib/dev/brcm80211/brcmfmac
 DEVBRCMINCDIR=	${SRCTOP}/sys/contrib/dev/brcm80211/include
 
