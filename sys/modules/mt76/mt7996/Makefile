@@ -1,8 +1,9 @@
+.include "../Makefile.inc"
+
 DEVDIR=	${SRCTOP}/sys/contrib/dev/mediatek/mt76/mt7996
 
 .PATH: ${DEVDIR}
 
-WITH_DEBUGFS=		0
 WITH_DEV_COREDUMP=	1
 
 KMOD=	if_mt7996
